@@ -1,28 +1,30 @@
 # 🪤 Tripwire
 
-> **AI Agent Evaluation and Reliability Engine** — CI/CD for autonomous AI agents.
+> **AI Agent Evaluation and Reliability Engine** — Automated CI/CD for autonomous AI agents.
 
-Tripwire automatically generates realistic and adversarial test scenarios for a given AI agent, runs it in a sandboxed environment, scores failure modes, and produces a reliability report.
+Tripwire generates realistic and adversarial test scenarios for any AI agent, runs them in a sandboxed environment, classifies failure modes, tests safety guardrails, and produces a reliability score — functioning as a continuous integration system for AI agents.
 
 ---
 
-## 🔍 What it does
+## 🔍 Core Features
 
-| Component | Description |
+| Component | What it does |
 |---|---|
-| **Scenario Generation Engine** | Reads an agent's tools, prompt & domain → generates realistic + adversarial test cases at scale using Gemini |
-| **Sandboxed Execution Harness** | Runs the agent against generated scenarios with mocked tools, capturing traces for deterministic replay |
-| **Failure Mode Classifier** | Categorises why a run failed — tool loops, hallucinated confidence, unsafe actions, goal drift |
-| **Destructive Action Guardrail Tester** | Probes an agent's willingness to perform irreversible actions under pressure or ambiguous instruction |
-| **Reliability Scorecard & Regression Tracker** | Scores and tracks agent reliability across versions and task categories |
+| **Scenario Generation Engine** | Reads an agent's tools, prompt & domain → generates realistic + adversarial test cases using Gemini |
+| **Sandboxed Execution Harness** | Runs the agent against each scenario with mocked tools, capturing full execution traces |
+| **Failure Mode Classifier** | Uses Gemini to classify why a run failed: Tool Loop, Hallucinated Confidence, Unsafe Action, Goal Drift, Timeout |
+| **Guardrail Tester** | Probes the agent with 10+ adversarial safety prompts to test refusal behaviour |
+| **Reliability Scorecard** | Scores agent reliability 0–100 and tracks regression across versions |
 
 ---
 
 ## 🏗️ Tech Stack
 
-- **Backend:** Python + FastAPI + LangChain + Google Gemini 2.0 Flash
-- **Frontend:** React + Vite + TypeScript + Recharts
-- **Database:** MongoDB (runs/traces/reports) + Redis (job queue)
+| Layer | Tech |
+|---|---|
+| Backend | Python · FastAPI · Google Gemini 2.0 Flash |
+| Frontend | React · Vite · TypeScript · Recharts |
+| Database | MongoDB Atlas · Redis (Upstash) |
 
 ---
 
@@ -31,37 +33,67 @@ Tripwire automatically generates realistic and adversarial test scenarios for a 
 ### Prerequisites
 - Python 3.11+
 - Node.js 18+
-- MongoDB (local or Atlas)
-- Redis (local or Upstash)
-- Gemini API Key → [aistudio.google.com](https://aistudio.google.com)
+- [MongoDB Atlas](https://www.mongodb.com/atlas) free cluster
+- [Upstash Redis](https://upstash.com) free instance
+- [Gemini API Key](https://aistudio.google.com) (free)
 
-### Backend Setup
+### 1. Clone & configure
+```bash
+git clone https://github.com/Harshcodes04/Tripwire.git
+cd Tripwire
+```
+
+### 2. Backend
 ```bash
 cd backend
 python -m venv .venv
-.venv\Scripts\activate       # Windows
+.venv\Scripts\activate        # Windows
+# source .venv/bin/activate   # Mac/Linux
 pip install -r requirements.txt
-cp .env.sample .env          # Fill in your keys
+
+cp .env.sample .env
+# Fill in GEMINI_API_KEY, MONGO_URI, REDIS_URL in .env
+
+python seed.py                 # Load demo agent
 uvicorn app.main:app --reload --port 8000
 ```
 
-### Frontend Setup
+### 3. Frontend
 ```bash
 cd frontend
 npm install
-cp .env.sample .env.local    # Set VITE_API_URL=http://localhost:8000
-npm run dev
+npm run dev                    # http://localhost:5173
 ```
+
+### 4. Demo
+1. Open `http://localhost:5173`
+2. The **Customer Support Bot** demo agent is pre-loaded
+3. Click **Run Tests** → watch scenarios run through the sandbox
+4. Click **Report** → see the reliability score + failure breakdown + guardrail results
 
 ---
 
-## 📁 Project Structure
+## 📁 Structure
 
 ```
 Tripwire/
-├── backend/         # FastAPI + AI services
-├── frontend/        # React + Vite dashboard
-└── README.md
+├── backend/
+│   ├── app/
+│   │   ├── main.py               # FastAPI entry point
+│   │   ├── config.py             # Environment settings
+│   │   ├── database.py           # MongoDB + Redis connections
+│   │   ├── models/               # Pydantic schemas
+│   │   ├── routers/              # API endpoints
+│   │   ├── services/             # Core AI services
+│   │   └── utils/                # Gemini client + trace logger
+│   ├── seed.py                   # Demo agent loader
+│   └── requirements.txt
+└── frontend/
+    └── src/
+        ├── pages/                # Dashboard, AgentConfig, RunView, FailureReport
+        ├── components/           # Navbar, TraceViewer, FailureBadge, ReliabilityChart
+        ├── api/                  # Typed Axios client
+        └── types/                # Shared TypeScript interfaces
 ```
 
 ---
@@ -70,4 +102,4 @@ Tripwire/
 
 *Theme: Agent Infrastructure, Testing and Failure Prediction*
 
-Autonomous AI agents fail on ~70% of real-world tasks. Teams ship agents against a handful of manually written test prompts — so real failure modes surface only after deployment. Tripwire is the automated fix.
+Autonomous AI agents fail on ~70% of real-world tasks. Teams ship agents against a handful of manually written prompts — real failure modes only surface after deployment. **Tripwire is the automated fix.**
