@@ -14,7 +14,7 @@ Tripwire evaluates agents through a fully automated, 5-step pipeline:
 
 ## Tech Stack
 
-- **Backend:** Python, FastAPI, Motor (Async MongoDB), Google Gemini 2.0 Flash
+- **Backend:** Python, FastAPI, Motor (Async MongoDB), Google Gemini 3.6 Flash
 - **Frontend:** React, TypeScript, Vite, Recharts
 - **Infrastructure:** MongoDB Atlas, Redis (for caching and job tracking)
 
