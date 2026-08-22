@@ -1,0 +1,19 @@
+# Generated traces are reproducible from scenarios + an API key; keep them out
+# of version control (Build Guide, Step 0.4: traces/ is git-ignored).
+traces/
+!traces/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.tmp
+*.json.tmp
