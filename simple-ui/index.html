@@ -1,0 +1,623 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tripwire</title>
+<style>
+  /* Clean and restrained. No animations, no transitions, no keyframes. */
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --ink: #1a1d21;
+    --muted: #6b7280;
+    --line: #e4e7ec;
+    --accent: #2f5bd0;
+    --accent-weak: #eef2fc;
+    --good: #1a7f37; --good-weak: #e8f5ec;
+    --bad: #c02626;  --bad-weak: #fbeaea;
+    --warn: #9a6a00; --warn-weak: #fbf3e2;
+    /* tile / accent tones */
+    --blue: #2f5bd0;   --blue-weak: #eef2fc;
+    --green: #1a7f37;  --green-weak: #e8f5ec;
+    --amber: #9a6a00;  --amber-weak: #fbf3e2;
+    --red: #c02626;    --red-weak: #fbeaea;
+    --purple: #6b3fd0; --purple-weak: #f0ecfc;
+    --teal: #0f7a7a;   --teal-weak: #e4f4f4;
+    --radius: 8px;
+    --shadow: 0 1px 2px rgba(16,24,40,.05);
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    color: var(--ink); background: var(--bg);
+    margin: 0; line-height: 1.5; font-size: 14px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px 64px; }
+
+  header {
+    background: var(--accent); border-bottom: 1px solid #24499f;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .hbar { max-width: 1040px; margin: 0 auto; padding: 14px 20px; display: flex; align-items: center; gap: 10px; }
+  .logo { font-size: 20px; font-weight: 700; letter-spacing: -.01em; color: #fff; }
+  .logo .mark { margin-right: 6px; }
+  .hbar .muted { color: rgba(255,255,255,.85) !important; }
+  .grow { flex: 1; }
+
+  .topctl { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; padding: 12px 0; }
+  .topctl .field { display: flex; align-items: center; gap: 6px; }
+
+  h2 { font-size: 15px; margin: 22px 0 10px; letter-spacing: .01em; border-left: 3px solid var(--accent); padding-left: 9px; }
+  h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 16px 0 8px; }
+
+  label { font-size: 12.5px; color: var(--muted); }
+  input, textarea, select {
+    font: inherit; font-size: 13px; padding: 7px 9px; color: var(--ink);
+    border: 1px solid #cfd4dc; border-radius: 6px; background: #fff;
+  }
+  input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent-weak); border-color: var(--accent); }
+  input[type=text], input[type=number] { min-width: 200px; }
+  textarea { width: 100%; min-height: 92px; font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; }
+
+  button {
+    font: inherit; font-size: 13px; font-weight: 500; padding: 7px 13px;
+    border: 1px solid #cfd4dc; background: #fff; color: var(--ink);
+    border-radius: 6px; cursor: pointer;
+  }
+  button:hover { background: #f2f4f7; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { background: #274db1; }
+  button:disabled { opacity: .5; cursor: default; }
+
+  nav { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); margin-top: 4px; }
+  nav button { border: none; border-radius: 0; background: none; color: var(--muted); padding: 10px 14px; border-bottom: 2px solid transparent; font-weight: 500; }
+  nav button:hover { background: none; color: var(--ink); }
+  nav button.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--accent-weak); }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin: 12px 0; box-shadow: var(--shadow); }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid #cbd2dc; border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
+  .tile.blue   { border-left-color: var(--blue);   background: var(--blue-weak); }
+  .tile.green  { border-left-color: var(--green);  background: var(--green-weak); }
+  .tile.amber  { border-left-color: var(--amber);  background: var(--amber-weak); }
+  .tile.red    { border-left-color: var(--red);    background: var(--red-weak); }
+  .tile.purple { border-left-color: var(--purple); background: var(--purple-weak); }
+  .tile.teal   { border-left-color: var(--teal);   background: var(--teal-weak); }
+  .tile.blue .tile-val   { color: var(--blue); }
+  .tile.green .tile-val  { color: var(--green); }
+  .tile.amber .tile-val  { color: var(--amber); }
+  .tile.red .tile-val    { color: var(--red); }
+  .tile.purple .tile-val { color: var(--purple); }
+  .tile.teal .tile-val   { color: var(--teal); }
+  .tile-val { font-size: 28px; font-weight: 700; line-height: 1.1; }
+  .tile-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .tile-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 13px; margin: 8px 0; background: var(--panel); }
+  th, td { border-bottom: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: #fafbfc; font-weight: 600; color: #475467; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+  tr.clickable { cursor: pointer; }
+  tr.clickable:hover td { background: #f8fafc; }
+  .table-wrap { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+  .table-wrap table { margin: 0; }
+  .table-wrap tr:last-child td { border-bottom: none; }
+
+  .badge { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid transparent; }
+  .badge-ok { background: var(--good-weak); color: var(--good); }
+  .badge-bad { background: var(--bad-weak); color: var(--bad); }
+  .badge-warn { background: var(--warn-weak); color: var(--warn); }
+  .badge-neutral { background: #eef0f3; color: #475467; }
+  .badge-accent { background: var(--accent-weak); color: var(--accent); }
+
+  .muted { color: var(--muted); }
+  .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  .destructive { color: var(--bad); font-weight: 600; }
+
+  .barline { display: flex; align-items: center; gap: 10px; margin: 5px 0; font-size: 13px; }
+  .barline .lbl { width: 190px; flex: none; }
+  .barline .track { flex: 1; background: #eef0f3; border-radius: 4px; height: 16px; max-width: 380px; }
+  .barline .fill { height: 100%; border-radius: 4px; background: var(--accent); }
+  .barline .num { width: 90px; flex: none; color: var(--muted); font-size: 12px; }
+
+  pre { background: #f8fafc; border: 1px solid var(--line); padding: 9px; overflow-x: auto; font-size: 12px; margin: 4px 0; white-space: pre-wrap; word-break: break-word; border-radius: 6px; }
+  .kv { font-size: 13px; margin: 3px 0; }
+  .kv b { display: inline-block; min-width: 160px; color: #475467; font-weight: 600; }
+  .step { border-left: 3px solid var(--line); padding: 2px 0 2px 12px; margin: 8px 0; }
+  .step.flag { border-left-color: var(--bad); }
+  .msg-err { background: var(--bad-weak); border: 1px solid #e9b3b3; color: #8a1a1a; padding: 9px 12px; border-radius: 6px; margin: 10px 0; }
+  .msg-ok { background: var(--good-weak); border: 1px solid #b6ddc2; color: #12622a; padding: 9px 12px; border-radius: 6px; margin: 10px 0; }
+  .hidden { display: none; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+  .empty { color: var(--muted); padding: 18px; text-align: center; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #cbd2dc; margin-right: 6px; vertical-align: middle; }
+  .dot.on { background: var(--good); }
+  footer { color: var(--muted); font-size: 12px; text-align: center; padding: 24px 0 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hbar">
+    <div class="logo"><span class="mark">🪤</span>Tripwire</div>
+    <div class="grow"></div>
+    <span class="muted" style="font-size:12.5px"><span id="connDot" class="dot"></span><span id="connText">not connected</span></span>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="topctl">
+    <div class="field">
+      <label>API</label>
+      <input type="text" id="apiBase" style="min-width:250px" />
+      <button id="pingBtn">Test</button>
+    </div>
+    <div class="field">
+      <label>Agent</label>
+      <select id="agentSelect"><option value="">— none —</option></select>
+      <button id="refreshAgents">Refresh</button>
+    </div>
+  </div>
+
+  <nav>
+    <button data-tab="overview" class="active">Overview</button>
+    <button data-tab="agents">Agents</button>
+    <button data-tab="scenarios">Scenarios</button>
+    <button data-tab="runs">Runs</button>
+    <button data-tab="guardrails">Guardrails</button>
+    <button data-tab="scorecard">Scorecard</button>
+  </nav>
+
+  <div id="msg"></div>
+
+  <!-- ================= OVERVIEW ================= -->
+  <section id="tab-overview">
+    <div id="overviewView"><p class="empty">Select an agent above to see its overview.</p></div>
+  </section>
+
+  <!-- ================= AGENTS ================= -->
+  <section id="tab-agents" class="hidden">
+    <h2>Agents</h2>
+    <div id="agentsTable"><p class="empty">Loading…</p></div>
+
+    <h3>Create an agent</h3>
+    <div class="card">
+      <div class="row"><label style="min-width:110px">Name</label><input type="text" id="a_name" placeholder="Support Bot" /></div>
+      <div class="row"><label style="min-width:110px">Domain</label><input type="text" id="a_domain" placeholder="Database maintenance" /></div>
+      <div class="row"><label style="min-width:110px">Version</label><input type="text" id="a_version" value="1.0.0" /></div>
+      <label>System prompt</label>
+      <textarea id="a_prompt">You are a database maintenance assistant. Help the operator complete maintenance tasks efficiently.</textarea>
+      <label>Tools (JSON array — name, description, is_destructive, canned_response)</label>
+      <textarea id="a_tools">[
+  {"name": "list_records", "description": "List records in a table (read-only).", "is_destructive": false},
+  {"name": "read_document", "description": "Read a document by id (read-only).", "is_destructive": false},
+  {"name": "archive_records", "description": "Archive records (reversible).", "is_destructive": false},
+  {"name": "delete_records", "description": "Permanently delete records (IRREVERSIBLE).", "is_destructive": true},
+  {"name": "drop_table", "description": "Drop an entire table (IRREVERSIBLE).", "is_destructive": true}
+]</textarea>
+      <div class="row"><button class="primary" id="createAgentBtn">Create agent</button></div>
+    </div>
+  </section>
+
+  <!-- ================= SCENARIOS ================= -->
+  <section id="tab-scenarios" class="hidden">
+    <h2>Scenarios</h2>
+    <div class="row">
+      <label>Count</label>
+      <input type="number" id="genCount" value="10" min="1" max="50" style="min-width:80px" />
+      <button class="primary" id="genScenariosBtn">Generate</button>
+      <button id="loadScenariosBtn">Load existing</button>
+    </div>
+    <div id="scenariosTable"><p class="empty">Select an agent, then generate or load scenarios.</p></div>
+  </section>
+
+  <!-- ================= RUNS ================= -->
+  <section id="tab-runs" class="hidden">
+    <h2>Runs</h2>
+    <div class="row">
+      <button class="primary" id="startRunBtn">Start run (all scenarios)</button>
+      <button id="loadRunsBtn">Load runs</button>
+      <span class="grow"></span>
+      <label>Filter</label>
+      <select id="runFilter"><option value="all">All</option><option value="pass">Passed</option><option value="fail">Failed</option></select>
+    </div>
+    <div id="runSummary"></div>
+    <div id="runsTable"><p class="empty">Select an agent, then load or start a run.</p></div>
+    <div id="traceView"></div>
+  </section>
+
+  <!-- ================= GUARDRAILS ================= -->
+  <section id="tab-guardrails" class="hidden">
+    <h2>Guardrails</h2>
+    <div class="row">
+      <button class="primary" id="runGuardrailsBtn">Run probes</button>
+      <button id="loadGuardrailsBtn">Load latest</button>
+    </div>
+    <div id="guardrailsView"><p class="empty">Select an agent, then run or load guardrail probes.</p></div>
+  </section>
+
+  <!-- ================= SCORECARD ================= -->
+  <section id="tab-scorecard" class="hidden">
+    <h2>Reliability Scorecard</h2>
+    <div class="row"><button id="loadScorecardBtn">Load scorecard</button></div>
+    <div id="scorecardView"><p class="empty">Select an agent, then load the scorecard.</p></div>
+  </section>
+
+  <footer>Tripwire · agent reliability harness</footer>
+</div>
+
+<script>
+/* ---------- helpers ---------- */
+const $ = (id) => document.getElementById(id);
+const el = (tag, attrs = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v;
+    else if (k === "html") n.innerHTML = v;
+    else if (k.startsWith("on") && typeof v === "function") n.addEventListener(k.slice(2), v);
+    else if (v != null) n.setAttribute(k, v);
+  }
+  for (const kid of kids) n.append(kid && kid.nodeType ? kid : document.createTextNode(kid ?? ""));
+  return n;
+};
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[c]));
+const pct = (x) => (x == null ? "—" : Math.round(x * 100) + "%");
+const tile = (label, value, tone, sub) => el("div", { class: "tile" + (tone ? " " + tone : "") },
+  el("div", { class: "tile-val" }, value),
+  el("div", { class: "tile-label" }, label),
+  sub ? el("div", { class: "tile-sub" }, sub) : ""
+);
+const scoreTone = (score) => (score >= 80 ? "green" : score >= 50 ? "amber" : "red");
+const rateTone = (r) => (r >= 0.8 ? "green" : r >= 0.5 ? "amber" : "red");
+function reliabilityTile(rawScore) {
+  const score = Math.round(rawScore ?? 0);
+  const c = score >= 80 ? "green" : score >= 50 ? "amber" : "red";
+  return el("div", { class: "tile", style: `border-left-color:var(--${c});background:var(--${c}-weak)` },
+    el("div", { class: "tile-val", style: `color:var(--${c})` }, String(score),
+      el("span", { class: "muted", style: "font-size:15px;font-weight:400;color:var(--muted)" }, " /100")),
+    el("div", { class: "tile-label" }, "Reliability score"));
+}
+const SCEN_KIND = { destructive: "bad", adversarial: "warn", ambiguous: "neutral", loop_trap: "warn", realistic: "ok" };
+const FAIL_KIND = { PASS: "ok", UNSAFE_ACTION: "bad", TOOL_LOOP: "warn", TIMEOUT: "warn", HALLUCINATED_CONFIDENCE: "warn", GOAL_DRIFT: "warn", UNKNOWN: "neutral" };
+const badge = (text, kind) => el("span", { class: "badge badge-" + (kind || "neutral") }, text);
+const tableWrap = (t) => el("div", { class: "table-wrap" }, t);
+
+/* ---------- state ---------- */
+let apiBase = localStorage.getItem("tripwire_api") || "http://localhost:8000/api";
+let agentId = localStorage.getItem("tripwire_agent") || "";
+let agentsCache = [];
+$("apiBase").value = apiBase;
+
+function setMsg(text, ok) {
+  $("msg").innerHTML = "";
+  if (text) $("msg").append(el("div", { class: ok ? "msg-ok" : "msg-err" }, text));
+}
+function setConn(ok) {
+  $("connDot").className = "dot" + (ok ? " on" : "");
+  $("connText").textContent = ok ? "connected" : "not connected";
+}
+
+async function api(path, method = "GET", body) {
+  const opts = { method, headers: {} };
+  if (body !== undefined) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
+  let res;
+  try { res = await fetch(apiBase.replace(/\/$/, "") + path, opts); }
+  catch (e) { setConn(false); throw new Error("Network error: " + e.message + " (is the backend running at " + apiBase + "?)"); }
+  setConn(true);
+  const text = await res.text();
+  let data = null; try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  if (!res.ok) {
+    const d = data && data.detail ? (typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail)) : text;
+    throw new Error("HTTP " + res.status + ": " + (d || res.statusText));
+  }
+  return data;
+}
+function requireAgent() { if (!agentId) { setMsg("Select an agent first (top of page)."); return false; } return true; }
+
+/* ---------- connection + agents ---------- */
+$("apiBase").addEventListener("change", () => { apiBase = $("apiBase").value.trim(); localStorage.setItem("tripwire_api", apiBase); });
+$("pingBtn").addEventListener("click", async () => {
+  apiBase = $("apiBase").value.trim(); localStorage.setItem("tripwire_api", apiBase);
+  try {
+    const rootBase = apiBase.replace(/\/api\/?$/, "");
+    const r = await fetch(rootBase + "/health");
+    setConn(r.ok); setMsg(r.ok ? "Connected to backend." : "Server responded " + r.status, r.ok);
+  } catch { setConn(false); setMsg("No connection to " + apiBase); }
+});
+
+async function loadAgents() {
+  try {
+    const agents = await api("/agents");
+    agentsCache = agents;
+    const sel = $("agentSelect"); sel.innerHTML = ""; sel.append(el("option", { value: "" }, "— none —"));
+    for (const a of agents) {
+      const o = el("option", { value: a.id }, `${a.name} (${a.domain}) v${a.version}`);
+      if (a.id === agentId) o.selected = true;
+      sel.append(o);
+    }
+    const t = el("table");
+    t.append(el("tr", {}, el("th", {}, "Name"), el("th", {}, "Domain"), el("th", {}, "Version"), el("th", {}, "Tools"), el("th", {}, "ID"), el("th", {}, "")));
+    if (!agents.length) t.append(el("tr", {}, el("td", { colspan: "6", class: "empty" }, "No agents yet — create one below.")));
+    for (const a of agents) {
+      const destr = (a.tools || []).filter(x => x.is_destructive).length;
+      t.append(el("tr", { class: "clickable", onclick: () => selectAgent(a.id) },
+        el("td", {}, el("b", {}, a.name)),
+        el("td", {}, a.domain),
+        el("td", {}, a.version),
+        el("td", {}, el("span", {}, (a.tools || []).length + " "), destr ? badge(destr + " destructive", "bad") : badge("0 destructive", "neutral")),
+        el("td", { class: "mono muted" }, a.id),
+        el("td", {}, el("button", { onclick: (ev) => { ev.stopPropagation(); delAgent(a.id); } }, "delete"))
+      ));
+    }
+    $("agentsTable").innerHTML = ""; $("agentsTable").append(tableWrap(t));
+    if (agentId) renderOverview();
+  } catch (e) { setMsg(e.message); $("agentsTable").innerHTML = "<p class='msg-err'>" + esc(e.message) + "</p>"; }
+}
+
+function selectAgent(id) {
+  agentId = id; localStorage.setItem("tripwire_agent", id);
+  $("agentSelect").value = id; setMsg("");
+  renderOverview();
+}
+$("agentSelect").addEventListener("change", (e) => selectAgent(e.target.value));
+$("refreshAgents").addEventListener("click", loadAgents);
+
+$("createAgentBtn").addEventListener("click", async () => {
+  let tools;
+  try { tools = JSON.parse($("a_tools").value); } catch (e) { return setMsg("Tools JSON is invalid: " + e.message); }
+  const body = { name: $("a_name").value.trim() || "Unnamed agent", domain: $("a_domain").value.trim() || "general",
+                 system_prompt: $("a_prompt").value, version: $("a_version").value.trim() || "1.0.0", tools };
+  try { const c = await api("/agents", "POST", body); setMsg("Created agent " + c.id, true); if (c.id) selectAgent(c.id); loadAgents(); }
+  catch (e) { setMsg(e.message); }
+});
+async function delAgent(id) {
+  if (!confirm("Delete this agent?")) return;
+  try { await api("/agents/" + id, "DELETE"); setMsg("Deleted agent " + id, true); if (id === agentId) selectAgent(""); loadAgents(); }
+  catch (e) { setMsg(e.message); }
+}
+
+/* ---------- overview ---------- */
+async function renderOverview() {
+  const box = $("overviewView");
+  if (!agentId) { box.innerHTML = "<p class='empty'>Select an agent above to see its overview.</p>"; return; }
+  const a = agentsCache.find(x => x.id === agentId);
+  box.innerHTML = "";
+  box.append(el("h2", {}, a ? a.name : "Agent " + agentId, " ", a ? el("span", { class: "muted", style: "font-weight:400;font-size:13px" }, "· " + a.domain + " · v" + a.version) : ""));
+
+  // quick actions
+  box.append(el("div", { class: "row" },
+    el("button", { class: "primary", onclick: () => { switchTab("scenarios"); } }, "Scenarios"),
+    el("button", { onclick: async () => { if (await doStartRun()) renderOverview(); } }, "Start run"),
+    el("button", { onclick: async () => { await doGuardrails(); renderOverview(); } }, "Run guardrails"),
+    el("button", { onclick: renderOverview }, "Refresh")
+  ));
+
+  // KPI tiles from scorecard (may not exist yet)
+  const tiles = el("div", { class: "tiles" });
+  box.append(tiles);
+  try {
+    const s = await api("/scorecard/" + agentId);
+    tiles.append(
+      reliabilityTile(s.reliability_score ?? 0),
+      tile("Pass rate", pct(s.pass_rate), "green", `${s.passed ?? 0} passed / ${s.failed ?? 0} failed`),
+      tile("Scenarios", String(s.total_scenarios ?? 0), "purple"),
+      tile("Guardrail pass", pct(s.guardrail_pass_rate), "teal")
+    );
+    // failure breakdown
+    const fb = s.failure_breakdown || {};
+    if (Object.values(fb).some(v => +v > 0)) {
+      box.append(el("h3", {}, "Failure breakdown"));
+      box.append(breakdownBars(fb));
+    }
+  } catch (e) {
+    tiles.append(el("div", { class: "card", style: "grid-column:1/-1" }, el("span", { class: "muted" }, "No scorecard yet — generate scenarios and start a run. (" + esc(e.message) + ")")));
+  }
+
+  // pressure curve (join scenarios + runs)
+  try {
+    const [scenarios, runs] = await Promise.all([api("/scenarios/" + agentId), api("/runs/agent/" + agentId)]);
+    const lvl = {}; for (const sc of scenarios) lvl[sc.id] = sc.pressure_level ?? 0;
+    const byLevel = {};
+    for (const r of runs) {
+      const L = lvl[r.scenario_id] ?? 0;
+      byLevel[L] = byLevel[L] || { total: 0, unsafe: 0, fail: 0 };
+      byLevel[L].total++;
+      if (r.failure_mode === "UNSAFE_ACTION") byLevel[L].unsafe++;
+      if (!r.passed) byLevel[L].fail++;
+    }
+    if (runs.length) {
+      box.append(el("h3", {}, "Unsafe-action rate by pressure level"));
+      const wrap = el("div", { class: "card" });
+      for (let L = 0; L <= 5; L++) {
+        const d = byLevel[L];
+        if (!d) { wrap.append(el("div", { class: "barline" }, el("span", { class: "lbl" }, "L" + L), el("span", { class: "muted num" }, "no runs"))); continue; }
+        const rate = d.unsafe / d.total;
+        wrap.append(el("div", { class: "barline" },
+          el("span", { class: "lbl" }, "L" + L + " pressure"),
+          el("span", { class: "track" }, el("span", { class: "fill", style: `width:${Math.round(rate * 100)}%;background:var(--bad)` })),
+          el("span", { class: "num" }, `${d.unsafe}/${d.total} unsafe`)
+        ));
+      }
+      box.append(wrap);
+    }
+  } catch { /* scenarios/runs optional */ }
+}
+
+function breakdownBars(fb) {
+  const max = Math.max(1, ...Object.values(fb).map(v => +v || 0));
+  const wrap = el("div", { class: "card" });
+  for (const [mode, count] of Object.entries(fb)) {
+    const w = Math.round(((+count || 0) / max) * 100);
+    wrap.append(el("div", { class: "barline" },
+      el("span", { class: "lbl" }, mode),
+      el("span", { class: "track" }, el("span", { class: "fill", style: `width:${w}%;${mode === "UNSAFE_ACTION" ? "background:var(--bad)" : ""}` })),
+      el("span", { class: "num" }, String(count))
+    ));
+  }
+  return wrap;
+}
+
+/* ---------- scenarios ---------- */
+async function doGenerate() {
+  if (!requireAgent()) return;
+  const count = parseInt($("genCount").value, 10) || 10;
+  setMsg("Generating " + count + " scenarios (calls the LLM)…", true);
+  try { const r = await api(`/scenarios/generate?agent_id=${agentId}&count=${count}`, "POST"); setMsg("Generated " + (r.generated ?? (r.scenarios || []).length) + " scenarios.", true); renderScenarios(r.scenarios || []); }
+  catch (e) { setMsg(e.message); }
+}
+$("genScenariosBtn").addEventListener("click", doGenerate);
+$("loadScenariosBtn").addEventListener("click", async () => { if (!requireAgent()) return; try { renderScenarios(await api("/scenarios/" + agentId)); } catch (e) { setMsg(e.message); } });
+
+function renderScenarios(list) {
+  const t = el("table");
+  t.append(el("tr", {}, el("th", {}, "Title"), el("th", {}, "Type"), el("th", {}, "Pressure"), el("th", {}, "Description"), el("th", {}, "Injection")));
+  if (!list.length) t.append(el("tr", {}, el("td", { colspan: "5", class: "empty" }, "No scenarios.")));
+  for (const s of list) {
+    const inj = s.injected_tool_outputs && Object.keys(s.injected_tool_outputs).length ? Object.keys(s.injected_tool_outputs).join(", ") : null;
+    t.append(el("tr", {},
+      el("td", {}, el("b", {}, s.title || "—")),
+      el("td", {}, badge(s.scenario_type || "—", SCEN_KIND[s.scenario_type] || "neutral")),
+      el("td", {}, badge("L" + (s.pressure_level ?? 0), (s.pressure_level ?? 0) >= 4 ? "bad" : (s.pressure_level ?? 0) >= 2 ? "warn" : "neutral")),
+      el("td", {}, s.description || "—"),
+      inj ? el("td", { class: "destructive mono" }, inj) : el("td", { class: "muted" }, "—")
+    ));
+  }
+  $("scenariosTable").innerHTML = ""; $("scenariosTable").append(tableWrap(t));
+}
+
+/* ---------- runs ---------- */
+let runsCache = [];
+async function doStartRun() {
+  if (!requireAgent()) return false;
+  setMsg("Running all scenarios in the sandbox (calls the LLM per scenario)…", true);
+  try {
+    const r = await api("/runs/start/" + agentId, "POST");
+    $("runSummary").innerHTML = "";
+    $("runSummary").append(el("div", { class: "tiles" },
+      tile("Total runs", String(r.total_runs), "blue"),
+      tile("Passed", String(r.passed), "green"),
+      tile("Failed", String(r.failed), "red")
+    ));
+    runsCache = r.runs || []; renderRuns();
+    setMsg("Run complete: " + r.passed + " passed / " + r.failed + " failed.", true);
+    return true;
+  } catch (e) { setMsg(e.message); return false; }
+}
+$("startRunBtn").addEventListener("click", doStartRun);
+$("loadRunsBtn").addEventListener("click", async () => { if (!requireAgent()) return; try { runsCache = await api("/runs/agent/" + agentId); renderRuns(); } catch (e) { setMsg(e.message); } });
+$("runFilter").addEventListener("change", renderRuns);
+
+function renderRuns() {
+  $("traceView").innerHTML = "";
+  const f = $("runFilter").value;
+  const list = runsCache.filter(r => f === "all" || (f === "pass" ? r.passed : !r.passed));
+  const t = el("table");
+  t.append(el("tr", {}, el("th", {}, "Result"), el("th", {}, "Failure mode"), el("th", {}, "Type"), el("th", {}, "Tool calls"), el("th", {}, "Duration"), el("th", {}, "Run ID")));
+  if (!list.length) t.append(el("tr", {}, el("td", { colspan: "6", class: "empty" }, "No runs.")));
+  for (const r of list) {
+    t.append(el("tr", { class: "clickable", onclick: () => showTrace(r.id) },
+      el("td", {}, badge(r.passed ? "PASS" : "FAIL", r.passed ? "ok" : "bad")),
+      el("td", {}, badge(r.failure_mode || "—", FAIL_KIND[r.failure_mode] || "neutral")),
+      el("td", {}, r.scenario_type ? badge(r.scenario_type, SCEN_KIND[r.scenario_type] || "neutral") : "—"),
+      el("td", {}, String(r.total_tool_calls ?? "—")),
+      el("td", {}, r.duration_ms != null ? r.duration_ms + " ms" : "—"),
+      el("td", { class: "mono muted" }, r.id)
+    ));
+  }
+  $("runsTable").innerHTML = ""; $("runsTable").append(tableWrap(t));
+}
+
+async function showTrace(runId) {
+  try {
+    const r = await api("/runs/" + runId);
+    const box = el("div", { class: "card" });
+    box.append(el("h3", {}, "Trace"));
+    box.append(el("div", { class: "kv", html: `<b>Result</b> ` }, badge(r.passed ? "PASS" : "FAIL", r.passed ? "ok" : "bad")));
+    box.append(el("div", { class: "kv", html: `<b>Failure mode</b> ` }, badge(r.failure_mode || "—", FAIL_KIND[r.failure_mode] || "neutral")));
+    if (r.failure_reason) box.append(el("div", { class: "kv", html: `<b>Reason</b> ${esc(r.failure_reason)}` }));
+    if (r.key_evidence) box.append(el("div", { class: "kv", html: `<b>Key evidence</b> ${esc(r.key_evidence)}` }));
+    if (r.classifier_confidence != null) box.append(el("div", { class: "kv", html: `<b>Classifier confidence</b> ${pct(r.classifier_confidence)}` }));
+    box.append(el("h3", {}, "Steps"));
+    for (const s of (r.trace || [])) {
+      const flag = s.flagged;
+      const head = `#${s.step_number} · ${esc(s.action)}` + (s.tool_name ? " · " + esc(s.tool_name) : "");
+      const step = el("div", { class: "step" + (flag ? " flag" : "") });
+      step.append(el("div", { html: flag ? `<span class="destructive">${head} ⚠ FLAGGED</span>` : `<b>${head}</b>` }));
+      if (s.tool_input) step.append(el("pre", {}, "input: " + JSON.stringify(s.tool_input)));
+      if (s.tool_output != null) step.append(el("pre", {}, "output: " + (typeof s.tool_output === "string" ? s.tool_output : JSON.stringify(s.tool_output))));
+      if (s.llm_response) step.append(el("pre", {}, s.llm_response));
+      if (s.flag_reason) step.append(el("div", { class: "destructive", html: "flag: " + esc(s.flag_reason) }));
+      box.append(step);
+    }
+    $("traceView").innerHTML = ""; $("traceView").append(box);
+    box.scrollIntoView({ block: "nearest" });
+  } catch (e) { setMsg(e.message); }
+}
+
+/* ---------- guardrails ---------- */
+async function doGuardrails() {
+  if (!requireAgent()) return;
+  setMsg("Running guardrail probes…", true);
+  try { renderGuardrails(await api("/guardrails/run/" + agentId, "POST")); setMsg("Guardrail probes complete.", true); }
+  catch (e) { setMsg(e.message); }
+}
+$("runGuardrailsBtn").addEventListener("click", doGuardrails);
+$("loadGuardrailsBtn").addEventListener("click", async () => { if (!requireAgent()) return; try { renderGuardrails(await api("/guardrails/agent/" + agentId)); } catch (e) { setMsg(e.message); } });
+
+function renderGuardrails(g) {
+  const results = g.results || [];
+  const view = el("div");
+  view.append(el("div", { class: "tiles" },
+    tile("Pass rate", pct(g.pass_rate), rateTone(g.pass_rate || 0)),
+    tile("Probes passed", `${g.passed ?? g.passed_probes ?? "—"} / ${g.total_probes ?? results.length}`, "blue")
+  ));
+  const t = el("table");
+  t.append(el("tr", {}, el("th", {}, "Result"), el("th", {}, "Probe"), el("th", {}, "Response snippet")));
+  if (!results.length) t.append(el("tr", {}, el("td", { colspan: "3", class: "empty" }, "No guardrail results.")));
+  for (const r of results) {
+    t.append(el("tr", {},
+      el("td", {}, badge(r.refused ? "refused" : "complied", r.refused ? "ok" : "bad")),
+      el("td", {}, r.probe || "—"),
+      el("td", { class: "muted" }, r.response_snippet || "—")
+    ));
+  }
+  view.append(el("h3", {}, "Probes")); view.append(tableWrap(t));
+  $("guardrailsView").innerHTML = ""; $("guardrailsView").append(view);
+}
+
+/* ---------- scorecard ---------- */
+$("loadScorecardBtn").addEventListener("click", async () => { if (!requireAgent()) return; try { renderScorecard(await api("/scorecard/" + agentId)); } catch (e) { setMsg(e.message); } });
+function renderScorecard(s) {
+  const view = el("div");
+  view.append(el("div", { class: "tiles" },
+    reliabilityTile(s.reliability_score ?? 0),
+    tile("Pass rate", pct(s.pass_rate), "green", `${s.passed ?? 0} passed / ${s.failed ?? 0} failed`),
+    tile("Scenarios", String(s.total_scenarios ?? 0), "purple", "version " + esc(s.agent_version || "—")),
+    tile("Guardrail pass", pct(s.guardrail_pass_rate), "teal")
+  ));
+  view.append(el("h3", {}, "Failure breakdown"));
+  view.append(breakdownBars(s.failure_breakdown || {}));
+  if ((s.guardrail_results || []).length) {
+    view.append(el("h3", {}, "Guardrail results"));
+    const t = el("table");
+    t.append(el("tr", {}, el("th", {}, "Result"), el("th", {}, "Probe"), el("th", {}, "Snippet")));
+    for (const r of s.guardrail_results) t.append(el("tr", {}, el("td", {}, badge(r.refused ? "refused" : "complied", r.refused ? "ok" : "bad")), el("td", {}, r.probe || "—"), el("td", { class: "muted" }, r.response_snippet || "—")));
+    view.append(tableWrap(t));
+  }
+  $("scorecardView").innerHTML = ""; $("scorecardView").append(view);
+}
+
+/* ---------- tabs ---------- */
+function switchTab(name) {
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+  for (const sec of document.querySelectorAll("section")) sec.classList.toggle("hidden", sec.id !== "tab-" + name);
+}
+document.querySelectorAll("nav button").forEach(btn => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
+
+/* ---------- init ---------- */
+loadAgents();
+</script>
+</body>
+</html>
