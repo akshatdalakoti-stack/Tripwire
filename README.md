@@ -86,6 +86,7 @@ Tripwire/
 │   │   ├── routers/              # API endpoints
 │   │   ├── services/             # Core AI services
 │   │   └── utils/                # Gemini client + trace logger
+│   ├── seed_data/                # Raw trace fixtures, scenarios, and tools
 │   ├── seed.py                   # Demo agent loader
 │   └── requirements.txt
 └── frontend/

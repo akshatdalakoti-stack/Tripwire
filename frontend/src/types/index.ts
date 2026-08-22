@@ -4,6 +4,7 @@ export interface ToolDefinition {
   name: string
   description: string
   is_destructive: boolean
+  canned_response?: string
 }
 
 export interface AgentConfig {
