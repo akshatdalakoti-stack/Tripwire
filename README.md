@@ -1,106 +1,105 @@
-# 🪤 Tripwire
+# Tripwire
 
-> **AI Agent Evaluation and Reliability Engine** — Automated CI/CD for autonomous AI agents.
+Tripwire is a CI/CD testing platform for autonomous AI agents. It evaluates agents by generating adversarial scenarios, executing them in a mocked sandbox, and scoring their reliability to catch failure modes before deployment.
 
-Tripwire generates realistic and adversarial test scenarios for any AI agent, runs them in a sandboxed environment, classifies failure modes, tests safety guardrails, and produces a reliability score — functioning as a continuous integration system for AI agents.
+## Architecture & Workflow
 
----
+Tripwire evaluates agents through a fully automated, 5-step pipeline:
 
-## 🔍 Core Features
+1. **Scenario Generation:** Takes an agent's prompt and toolset, and generates realistic, ambiguous, and adversarial (L0-L5) test cases.
+2. **Sandboxed Execution:** Runs the agent against scenarios in a mocked environment. Destructive actions are intercepted and logged without executing.
+3. **Failure Classification:** Analyzes the execution trace to detect goal drift, tool looping, and unsafe operations.
+4. **Guardrail Testing:** Probes the agent with adversarial safety prompts to ensure it correctly refuses out-of-bounds requests.
+5. **Reliability Scorecard:** Aggregates test results into a unified regression report and a 0-100 reliability score.
 
-| Component | What it does |
-|---|---|
-| **Scenario Generation Engine** | Reads an agent's tools, prompt & domain → generates realistic + adversarial test cases using Gemini |
-| **Sandboxed Execution Harness** | Runs the agent against each scenario with mocked tools, capturing full execution traces |
-| **Failure Mode Classifier** | Uses Gemini to classify why a run failed: Tool Loop, Hallucinated Confidence, Unsafe Action, Goal Drift, Timeout |
-| **Guardrail Tester** | Probes the agent with 10+ adversarial safety prompts to test refusal behaviour |
-| **Reliability Scorecard** | Scores agent reliability 0–100 and tracks regression across versions |
+## Tech Stack
 
----
+- **Backend:** Python, FastAPI, Motor (Async MongoDB), Google Gemini 2.0 Flash
+- **Frontend:** React, TypeScript, Vite, Recharts
+- **Infrastructure:** MongoDB Atlas, Redis (for caching and job tracking)
 
-## 🏗️ Tech Stack
+## Local Setup
 
-| Layer | Tech |
-|---|---|
-| Backend | Python · FastAPI · Google Gemini 2.0 Flash |
-| Frontend | React · Vite · TypeScript · Recharts |
-| Database | MongoDB Atlas · Redis (Upstash) |
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
+### 1. Prerequisites
 - Python 3.11+
 - Node.js 18+
-- [MongoDB Atlas](https://www.mongodb.com/atlas) free cluster
-- [Upstash Redis](https://upstash.com) free instance
-- [Gemini API Key](https://aistudio.google.com) (free)
+- MongoDB instance (local or Atlas)
+- Redis instance (local or Upstash)
+- Gemini API Key
 
-### 1. Clone & configure
-```bash
-git clone https://github.com/Harshcodes04/Tripwire.git
-cd Tripwire
-```
+### 2. Backend Installation
 
-### 2. Backend
+Navigate to the backend directory and set up the Python environment:
+
 ```bash
 cd backend
 python -m venv .venv
-.venv\Scripts\activate        # Windows
-# source .venv/bin/activate   # Mac/Linux
+
+# Windows
+.venv\Scripts\activate
+# Unix/macOS
+source .venv/bin/activate
+
 pip install -r requirements.txt
+```
 
+### 3. Configuration
+
+Copy the sample environment file and add your credentials:
+```bash
 cp .env.sample .env
-# Fill in GEMINI_API_KEY, MONGO_URI, REDIS_URL in .env
+```
 
-python seed.py                 # Load demo agent
+Required environment variables in `.env`:
+```
+GEMINI_API_KEY=your_gemini_api_key
+MONGO_URI=your_mongodb_connection_string
+REDIS_URL=your_redis_connection_string
+DB_NAME=tripwire
+```
+
+### 4. Database Seeding
+
+Seed the database with the baseline agent and fixture traces to ensure the dashboard has data to display:
+```bash
+python seed.py
+```
+
+### 5. Running the Application
+
+Start the FastAPI backend:
+```bash
 uvicorn app.main:app --reload --port 8000
 ```
 
-### 3. Frontend
+In a separate terminal, start the React frontend:
 ```bash
 cd frontend
 npm install
-npm run dev                    # http://localhost:5173
+npm run dev
 ```
 
-### 4. Demo
-1. Open `http://localhost:5173`
-2. The **Customer Support Bot** demo agent is pre-loaded
-3. Click **Run Tests** → watch scenarios run through the sandbox
-4. Click **Report** → see the reliability score + failure breakdown + guardrail results
+The application will be accessible at `http://localhost:5173`.
 
----
+## Repository Structure
 
-## 📁 Structure
-
-```
+```text
 Tripwire/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py               # FastAPI entry point
-│   │   ├── config.py             # Environment settings
-│   │   ├── database.py           # MongoDB + Redis connections
-│   │   ├── models/               # Pydantic schemas
-│   │   ├── routers/              # API endpoints
-│   │   ├── services/             # Core AI services
-│   │   └── utils/                # Gemini client + trace logger
-│   ├── seed_data/                # Raw trace fixtures, scenarios, and tools
-│   ├── seed.py                   # Demo agent loader
-│   └── requirements.txt
-└── frontend/
-    └── src/
-        ├── pages/                # Dashboard, AgentConfig, RunView, FailureReport
-        ├── components/           # Navbar, TraceViewer, FailureBadge, ReliabilityChart
-        ├── api/                  # Typed Axios client
-        └── types/                # Shared TypeScript interfaces
+│   │   ├── models/          # Pydantic schemas (Agent, Scenario, RunResult)
+│   │   ├── routers/         # REST API endpoints
+│   │   ├── services/        # Core business logic (Sandbox, Classifier, Engine)
+│   │   └── utils/           # LLM client wrappers and logging
+│   ├── seed_data/           # Raw trace fixtures, scenarios, and mock tools
+│   └── seed.py              # CLI script to load test data into MongoDB
+├── frontend/                
+│   └── src/                 # React SPA, routing, and Recharts components
+└── cli_harness/             # Legacy CLI harness and raw python scripts
 ```
 
----
+## Troubleshooting
 
-## 🧠 Problem Statement
-
-*Theme: Agent Infrastructure, Testing and Failure Prediction*
-
-Autonomous AI agents fail on ~70% of real-world tasks. Teams ship agents against a handful of manually written prompts — real failure modes only surface after deployment. **Tripwire is the automated fix.**
+- **MongoDB Timeout:** Ensure your IP address is whitelisted in your MongoDB Atlas network access settings.
+- **Frontend Build Errors:** Ensure you are running `npm install` inside the `frontend` directory before running the dev server.
+- **Missing Traces:** If the dashboard is empty, ensure you ran `python seed.py` with valid MongoDB credentials.
