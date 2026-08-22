@@ -1,19 +1,41 @@
-# Generated traces are reproducible from scenarios + an API key; keep them out
-# of version control (Build Guide, Step 0.4: traces/ is git-ignored).
-traces/
-!traces/.gitkeep
-
 # Python
 __pycache__/
-*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+.Python
 .venv/
 venv/
 env/
 *.egg-info/
+dist/
+build/
 .pytest_cache/
 
-# OS / editor cruft
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Node / Frontend
+node_modules/
+dist/
 .DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Logs
+*.log
+logs/
+
+# OS
 Thumbs.db
+
+# Tripwire harness generated traces - keep out of version control
+traces/
+!traces/.gitkeep
 *.tmp
-*.json.tmp
