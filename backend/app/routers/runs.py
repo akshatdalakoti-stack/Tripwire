@@ -58,6 +58,7 @@ async def start_run(agent_id: str):
         data["key_evidence"] = classification["key_evidence"]
         insert = await runs_col().insert_one(data)
         data["id"] = str(insert.inserted_id)
+        data.pop("_id", None)
         results.append(data)
 
     return {
