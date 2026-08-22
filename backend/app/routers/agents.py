@@ -23,6 +23,7 @@ async def create_agent(agent: AgentConfig):
     data = agent.model_dump()
     result = await agents_col().insert_one(data)
     data["id"] = str(result.inserted_id)
+    data.pop("_id", None)
     return data
 
 

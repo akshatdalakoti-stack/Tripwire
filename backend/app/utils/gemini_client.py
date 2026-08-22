@@ -35,11 +35,21 @@ async def generate_json(prompt: str) -> dict | list:
     )
     raw = response.text.strip()
 
-    # Strip ```json ... ``` fences if present
-    raw = re.sub(r"^```(?:json)?\s*", "", raw)
-    raw = re.sub(r"\s*```$", "", raw)
+    # Strip ```json ... ``` fences more robustly
+    if raw.startswith("```"):
+        raw = re.sub(r"^```(?:json)?\s*", "", raw)
+        raw = re.sub(r"\s*```$", "", raw)
+    
+    raw = raw.strip()
 
     try:
         return json.loads(raw)
     except json.JSONDecodeError as e:
+        # Fallback: try to find an array or object in the raw text
+        match = re.search(r"(\[.*\]|\{.*\})", raw, re.DOTALL)
+        if match:
+            try:
+                return json.loads(match.group(1))
+            except:
+                pass
         raise ValueError(f"Gemini returned invalid JSON: {e}\nRaw output:\n{raw}")

@@ -35,6 +35,7 @@ async def generate(agent_id: str, count: int = 10):
         data["agent_id"] = agent_id
         result = await scenarios_col().insert_one(data)
         data["id"] = str(result.inserted_id)
+        data.pop("_id", None)  # Remove ObjectId to prevent JSON serialization 500 errors
         saved.append(data)
 
     return {"generated": len(saved), "scenarios": saved}
