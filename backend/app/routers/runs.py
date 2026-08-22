@@ -5,7 +5,7 @@ GET    /api/runs/{run_id}            → Get a single run result
 GET    /api/runs/agent/{agent_id}    → Get all runs for an agent
 """
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException
 from bson import ObjectId
 from app.database import runs_col, scenarios_col, agents_col
 from app.models.agent import AgentConfig

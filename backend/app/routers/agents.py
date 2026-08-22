@@ -39,3 +39,10 @@ async def get_agent(agent_id: str):
     if not doc:
         raise HTTPException(status_code=404, detail="Agent not found")
     return serialize(doc)
+
+
+@router.delete("/{agent_id}", status_code=204)
+async def delete_agent(agent_id: str):
+    result = await agents_col().delete_one({"_id": ObjectId(agent_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Agent not found")

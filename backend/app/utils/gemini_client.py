@@ -7,7 +7,6 @@ Uses the new google.genai SDK (google-genai package).
 import json
 import re
 from google import genai
-from google.genai import types
 from app.config import settings
 
 # Configure client once on import
