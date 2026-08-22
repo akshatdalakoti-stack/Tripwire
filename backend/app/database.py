@@ -51,9 +51,10 @@ def get_redis() -> aioredis.Redis:
 # ── Lifecycle ──────────────────────────────────────────────
 async def connect_db():
     global _mongo_client, _redis_client
-    _mongo_client = AsyncIOMotorClient(settings.MONGODB_URI)
+    import certifi
+    _mongo_client = AsyncIOMotorClient(settings.MONGODB_URI, tlsCAFile=certifi.where())
     _redis_client = await aioredis.from_url(settings.REDIS_URL, decode_responses=True)
-    print("✅ Connected to MongoDB and Redis")
+    print("Connected to MongoDB and Redis")
 
 
 async def close_db():
