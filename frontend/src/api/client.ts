@@ -1,7 +1,9 @@
 import axios from 'axios'
 import type { AgentConfig, ReliabilityReport, RunResult, StartRunResponse } from '../types'
 
-const api = axios.create({ baseURL: '/api' })
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || '/api',
+})
 
 // Agents
 export const createAgent = (data: Omit<AgentConfig, 'id' | 'created_at'>) =>
