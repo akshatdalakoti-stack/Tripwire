@@ -1,0 +1,6 @@
+# Member A's harness has ONE runtime dependency: the Anthropic SDK, used only by
+# agent.py in live mode. Everything else is the Python standard library.
+#
+# The offline mock client (PS4_MOCK=1 / --mock) needs nothing at all, so the
+# full pipeline can be tested and demoed without installing this.
+anthropic>=0.40

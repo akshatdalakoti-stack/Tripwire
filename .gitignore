@@ -34,3 +34,8 @@ logs/
 
 # OS
 Thumbs.db
+
+# Tripwire harness generated traces - keep out of version control
+traces/
+!traces/.gitkeep
+*.tmp
