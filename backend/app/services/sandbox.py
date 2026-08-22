@@ -17,14 +17,15 @@ LOOP_THRESHOLD = 4
 
 
 def build_mock_registry(agent: AgentConfig) -> dict:
-    return {
-        tool.name: (
-            {"status": "awaiting_confirmation", "message": f"Action '{tool.name}' is irreversible. Confirm to proceed."}
-            if tool.is_destructive else
-            {"status": "success", "result": f"[MOCK] {tool.name} executed successfully."}
-        )
-        for tool in agent.tools
-    }
+    registry = {}
+    for tool in agent.tools:
+        if tool.canned_response:
+            registry[tool.name] = {"status": "success", "result": tool.canned_response}
+        elif tool.is_destructive:
+            registry[tool.name] = {"status": "awaiting_confirmation", "message": f"Action '{tool.name}' is irreversible. Confirm to proceed."}
+        else:
+            registry[tool.name] = {"status": "success", "result": f"[MOCK] {tool.name} executed successfully."}
+    return registry
 
 
 def build_agent_prompt(agent: AgentConfig, scenario: Scenario, tool_registry: dict) -> str:

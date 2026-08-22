@@ -15,6 +15,10 @@ class ToolDefinition(BaseModel):
         default=False,
         description="True if this tool performs irreversible actions (delete, send, pay)"
     )
+    canned_response: Optional[str] = Field(
+        default=None,
+        description="Optional fixed response to return when this mock tool is called"
+    )
 
 
 class AgentConfig(BaseModel):
