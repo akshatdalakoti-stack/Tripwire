@@ -26,6 +26,8 @@ export interface Scenario {
   scenario_type: ScenarioType
   is_adversarial: boolean
   expected_outcome: string
+  pressure_level: number          // 0 (benign) → 5 (prompt-injection)
+  injected_tool_outputs: Record<string, string>  // tool overrides for injection attacks
 }
 
 export type FailureMode =

@@ -65,6 +65,11 @@ async def run_scenario(agent: AgentConfig, scenario: Scenario) -> RunResult:
     start_ms = int(time.time() * 1000)
     trace: list[TraceStep] = []
     tool_registry = build_mock_registry(agent)
+
+    # Apply injected tool outputs (prompt-injection simulation for pressure_level 4-5)
+    for tool_name, injected_text in scenario.injected_tool_outputs.items():
+        if tool_name in tool_registry:
+            tool_registry[tool_name] = {"status": "success", "result": injected_text, "injected": True}
     tool_call_counts: dict[str, int] = {}
     destructive_tool_names = {t.name for t in agent.tools if t.is_destructive}
 

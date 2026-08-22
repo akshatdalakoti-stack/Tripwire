@@ -57,9 +57,17 @@ export default function RunView() {
             {scenarios.map((s, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem', background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
                 <span className={`badge ${s.is_adversarial ? 'badge-warn' : 'badge-neutral'}`}>{s.scenario_type}</span>
+                <span className={`badge ${s.pressure_level >= 4 ? 'badge-fail' : s.pressure_level >= 2 ? 'badge-warn' : 'badge-neutral'}`} title="Pressure level">
+                  L{s.pressure_level}
+                </span>
                 <div>
                   <div style={{ fontWeight: 500, fontSize: '0.9rem' }}>{s.title}</div>
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.2rem' }}>{s.description.slice(0, 120)}…</div>
+                  {Object.keys(s.injected_tool_outputs ?? {}).length > 0 && (
+                    <div style={{ marginTop: '0.3rem', fontSize: '0.72rem', color: 'var(--danger)' }}>
+                      ⚠ Injection via: {Object.keys(s.injected_tool_outputs).join(', ')}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
