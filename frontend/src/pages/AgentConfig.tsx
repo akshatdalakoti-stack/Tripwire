@@ -30,8 +30,9 @@ export default function AgentConfig() {
       const agent = await createAgent(form)
       await generateScenarios(agent.id!, 10)
       navigate(`/agents/${agent.id}/run`)
-    } catch (err) {
-      alert('Failed to create agent. Check console.')
+    } catch (err: any) {
+      const msg = err.response?.data?.detail || 'Failed to create agent. Check console.'
+      alert(`Error: ${msg}`)
       console.error(err)
     } finally {
       setSaving(false)

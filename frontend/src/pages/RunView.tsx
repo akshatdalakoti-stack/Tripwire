@@ -27,8 +27,9 @@ export default function RunView() {
     try {
       const res = await startRun(agentId)
       setResult(res)
-    } catch (err) {
-      alert('Run failed. Check console.')
+    } catch (err: any) {
+      const msg = err.response?.data?.detail || 'Run failed. Check console.'
+      alert(`Error: ${msg}`)
       console.error(err)
     } finally {
       setRunning(false)
