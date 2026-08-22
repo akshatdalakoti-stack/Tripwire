@@ -24,7 +24,7 @@ async def generate_text(prompt: str) -> str:
             model=MODEL,
             contents=prompt,
         )
-        return response.text.strip()
+        return (response.text or "").strip()
     except errors.ClientError as e:
         if getattr(e, 'status_code', None) == 429:
             raise HTTPException(status_code=429, detail="AI Rate Limit Exceeded: Please wait 30 seconds and try again.")
@@ -46,7 +46,7 @@ async def generate_json(prompt: str) -> dict | list:
             raise HTTPException(status_code=429, detail="AI Rate Limit Exceeded: Please wait 30 seconds and try again.")
         raise HTTPException(status_code=502, detail=f"AI API Error: {str(e)}")
 
-    raw = response.text.strip()
+    raw = (response.text or "").strip()
 
     # Strip ```json ... ``` fences more robustly
     if raw.startswith("```"):

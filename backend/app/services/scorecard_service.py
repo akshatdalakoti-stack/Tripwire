@@ -6,6 +6,8 @@ and tracks score history for regression detection.
 """
 
 from datetime import datetime, timezone
+from bson import ObjectId
+from bson.errors import InvalidId
 from app.models.run import FailureMode
 from app.models.report import ReliabilityReport, FailureBreakdown, GuardrailResult
 from app.database import runs_col, reports_col, agents_col
@@ -38,7 +40,10 @@ async def compute_scorecard(
     """
 
     # ── Fetch agent ───────────────────────────────────────
-    agent_doc = await agents_col().find_one({"_id": agent_id})
+    try:
+        agent_doc = await agents_col().find_one({"_id": ObjectId(agent_id)})
+    except (InvalidId, TypeError):
+        agent_doc = None
     agent_version = agent_doc.get("version", "1.0.0") if agent_doc else "unknown"
 
     # ── Fetch all runs for this agent ─────────────────────
@@ -106,8 +111,19 @@ async def compute_scorecard(
         generated_at=datetime.now(timezone.utc),
     )
 
-    # ── Persist to DB ─────────────────────────────────────
-    await reports_col().insert_one(report.model_dump())
+    # ── Persist to DB (tagged, and only when the score actually changed, so
+    #    the regression history is not padded on every scorecard view) ──────
+    report_doc = report.model_dump()
+    report_doc["type"] = "scorecard"
+    last = await reports_col().find_one(
+        {"agent_id": agent_id, "type": "scorecard"},
+        sort=[("generated_at", -1)],
+    )
+    if not last or (
+        last.get("reliability_score") != report.reliability_score
+        or last.get("total_scenarios") != report.total_scenarios
+    ):
+        await reports_col().insert_one(report_doc)
 
     return report
 
@@ -118,7 +134,7 @@ async def get_score_history(agent_id: str) -> list[dict]:
     Used for the regression tracker chart on the frontend.
     """
     cursor = reports_col().find(
-        {"agent_id": agent_id},
+        {"agent_id": agent_id, "type": "scorecard"},
         {"_id": 0, "reliability_score": 1, "pass_rate": 1,
          "generated_at": 1, "agent_version": 1, "total_scenarios": 1}
     ).sort("generated_at", 1)
