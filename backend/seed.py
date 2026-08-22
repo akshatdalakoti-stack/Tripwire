@@ -19,7 +19,7 @@ from app.models.run import RunResult, RunStatus, FailureMode, TraceStep
 load_dotenv()
 
 import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(os.path.join(os.path.dirname(__file__), "seed_data"))
 from tools import TOOLS
 
 DEMO_AGENT = {
@@ -55,7 +55,7 @@ async def seed():
     print(f"Demo agent created with id: {agent_id}")
 
     # 2. Insert Scenarios
-    scenarios_dir = os.path.join(os.path.dirname(__file__), "..", "scenarios")
+    scenarios_dir = os.path.join(os.path.dirname(__file__), "seed_data", "scenarios")
     if os.path.exists(scenarios_dir):
         for filename in os.listdir(scenarios_dir):
             if filename.endswith(".json"):
@@ -85,7 +85,7 @@ async def seed():
         print("Imported scenarios.")
 
     # 3. Insert Fixtures (as RunResults)
-    fixtures_dir = os.path.join(os.path.dirname(__file__), "..", "fixtures")
+    fixtures_dir = os.path.join(os.path.dirname(__file__), "seed_data", "fixtures")
     if os.path.exists(fixtures_dir):
         for filename in os.listdir(fixtures_dir):
             if filename.endswith(".json"):
