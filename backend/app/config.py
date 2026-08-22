@@ -11,7 +11,7 @@ load_dotenv()
 
 class Settings:
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
-    MONGODB_URI: str = os.getenv("MONGODB_URI", "mongodb://localhost:27017/tripwire")
+    MONGODB_URI: str = os.getenv("MONGO_URI", "mongodb://localhost:27017/tripwire")
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379")
     APP_PORT: int = int(os.getenv("APP_PORT", "8000"))
     APP_ENV: str = os.getenv("APP_ENV", "development")

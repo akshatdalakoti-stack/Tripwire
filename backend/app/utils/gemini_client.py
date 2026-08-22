@@ -1,22 +1,26 @@
 """
 utils/gemini_client.py — Shared Gemini API wrapper.
 All AI services use these functions — never call the SDK directly elsewhere.
+Uses the new google.genai SDK (google-genai package).
 """
 
 import json
 import re
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from app.config import settings
 
-# Configure once on import
-genai.configure(api_key=settings.GEMINI_API_KEY)
-
-_model = genai.GenerativeModel("gemini-2.0-flash")
+# Configure client once on import
+_client = genai.Client(api_key=settings.GEMINI_API_KEY)
+MODEL = "gemini-2.0-flash"
 
 
 async def generate_text(prompt: str) -> str:
     """Send a plain text prompt and return the response string."""
-    response = _model.generate_content(prompt)
+    response = _client.models.generate_content(
+        model=MODEL,
+        contents=prompt,
+    )
     return response.text.strip()
 
 
@@ -26,7 +30,10 @@ async def generate_json(prompt: str) -> dict | list:
     Automatically strips markdown code fences and parses the result.
     """
     full_prompt = f"{prompt}\n\nRespond ONLY with valid JSON. No markdown, no explanation."
-    response = _model.generate_content(full_prompt)
+    response = _client.models.generate_content(
+        model=MODEL,
+        contents=full_prompt,
+    )
     raw = response.text.strip()
 
     # Strip ```json ... ``` fences if present
