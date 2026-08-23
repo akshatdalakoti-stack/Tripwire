@@ -2,6 +2,14 @@
 
 Tripwire is a CI/CD testing platform for autonomous AI agents. It evaluates agents by generating adversarial scenarios, executing them in a mocked sandbox, and scoring their reliability to catch failure modes before deployment.
 
+## Demo Video
+
+A walkthrough of the full pipeline: agent configuration, scenario generation,
+sandboxed execution, failure classification, guardrail probes, and the
+reliability scorecard.
+
+[Watch the demo](docs/demo.mp4) (30 MB, 4:17)
+
 ## Architecture & Workflow
 
 Tripwire evaluates agents through a fully automated, 5-step pipeline:
