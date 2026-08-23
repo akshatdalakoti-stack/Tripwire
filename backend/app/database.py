@@ -51,8 +51,12 @@ def get_redis() -> aioredis.Redis:
 # ── Lifecycle ──────────────────────────────────────────────
 async def connect_db():
     global _mongo_client, _redis_client
-    import certifi
-    _mongo_client = AsyncIOMotorClient(settings.MONGODB_URI, tlsCAFile=certifi.where())
+    # Atlas (mongodb+srv://) needs a CA bundle; a local mongod speaks no TLS.
+    if settings.MONGODB_URI.startswith("mongodb+srv://"):
+        import certifi
+        _mongo_client = AsyncIOMotorClient(settings.MONGODB_URI, tlsCAFile=certifi.where())
+    else:
+        _mongo_client = AsyncIOMotorClient(settings.MONGODB_URI)
     _redis_client = await aioredis.from_url(settings.REDIS_URL, decode_responses=True)
     print("Connected to MongoDB and Redis")
 
