@@ -16,6 +16,7 @@ class Settings:
     APP_PORT: int = int(os.getenv("APP_PORT", "8000"))
     APP_ENV: str = os.getenv("APP_ENV", "development")
     DB_NAME: str = "tripwire"
+    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
 
     def validate(self):
         if not self.GEMINI_API_KEY:
