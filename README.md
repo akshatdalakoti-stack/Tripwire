@@ -2,13 +2,15 @@
 
 Tripwire is a CI/CD testing platform for autonomous AI agents. It evaluates agents by generating adversarial scenarios, executing them in a mocked sandbox, and scoring their reliability to catch failure modes before deployment.
 
+**🚀 Live Website:** [https://tripwire-sigma.vercel.app/](https://tripwire-sigma.vercel.app/)
+
 ## Demo Video
 
 A walkthrough of the full pipeline: agent configuration, scenario generation,
 sandboxed execution, failure classification, guardrail probes, and the
 reliability scorecard.
 
-[Watch the demo](docs/demo.mp4) (30 MB, 4:17)
+https://github.com/user-attachments/assets/f5f83888-8bb7-4b1b-aeda-2fe8d559e1e8
 
 ## Architecture & Workflow
 
@@ -64,6 +66,7 @@ GEMINI_API_KEY=your_gemini_api_key
 MONGO_URI=your_mongodb_connection_string
 REDIS_URL=your_redis_connection_string
 DB_NAME=tripwire
+CORS_ORIGINS=http://localhost:5173,https://tripwire-sigma.vercel.app
 ```
 
 ### 4. Database Seeding
