@@ -4,6 +4,9 @@ Tripwire is a CI/CD testing platform for autonomous AI agents. It evaluates agen
 
 **🚀 Live Website:** [https://tripwire-sigma.vercel.app/](https://tripwire-sigma.vercel.app/)
 
+> [!WARNING]
+> **Public Demo Notice:** The live deployment is provided for demonstration purposes only. It currently does not have user authentication enabled, meaning anyone can access, create, edit, or delete data on the platform. Please feel free to test it out, but do not enter any sensitive or private information!
+
 ## Demo Video
 
 A walkthrough of the full pipeline: agent configuration, scenario generation,
