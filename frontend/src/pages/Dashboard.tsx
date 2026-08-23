@@ -14,30 +14,31 @@ export default function Dashboard() {
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!confirm('Delete this agent?')) return
+    if (!confirm('Are you sure you want to delete this agent?')) return
     await deleteAgent(id)
     setAgents(prev => prev.filter(a => a.id !== id))
   }
 
   return (
     <div className="page fade-in">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3rem' }}>
         <div>
           <h1 className="page-title">Dashboard</h1>
-          <p className="page-sub">All registered agents and their reliability status</p>
+          <p className="page-sub">Manage your AI agents and their reliability status</p>
         </div>
         <button className="btn btn-primary" onClick={() => navigate('/agents/new')}>
           + New Agent
         </button>
       </div>
 
-      {loading && <div style={{ textAlign: 'center', padding: '3rem' }}><span className="spinner" /></div>}
+      {loading && <div style={{ textAlign: 'center', padding: '4rem' }}><span className="spinner" /></div>}
 
       {!loading && !agents.length && (
-        <div className="card empty">
+        <div className="card empty fade-in">
           <div className="empty-icon">🤖</div>
-          <p>No agents yet. Create your first agent to get started.</p>
-          <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={() => navigate('/agents/new')}>
+          <h3 style={{ fontSize: '1.25rem', color: 'var(--text)', marginBottom: '0.5rem' }}>No agents yet</h3>
+          <p style={{ marginBottom: '1.5rem' }}>Create your first AI agent to start monitoring its reliability.</p>
+          <button className="btn btn-primary" onClick={() => navigate('/agents/new')}>
             Create Agent
           </button>
         </div>
@@ -47,26 +48,27 @@ export default function Dashboard() {
         {agents.map(agent => (
           <div
             key={agent.id}
-            className="card"
-            style={{ cursor: 'pointer', transition: 'border-color 0.2s' }}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+            className="card fade-in"
+            style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column' }}
+            onClick={() => navigate(`/agents/${agent.id}/report`)}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
               <div>
-                <div style={{ fontWeight: 600, fontSize: '1rem' }}>{agent.name}</div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.1rem' }}>{agent.domain}</div>
+                <h3 style={{ fontWeight: 600, fontSize: '1.25rem', color: 'var(--text)' }}>{agent.name}</h3>
+                <div style={{ color: 'var(--accent)', fontSize: '0.9rem', marginTop: '0.25rem', fontWeight: 500 }}>
+                  {agent.domain}
+                </div>
               </div>
-              <span style={{ background: 'var(--surface-2)', padding: '0.2rem 0.6rem', borderRadius: 99, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+              <span style={{ background: 'var(--surface-2)', padding: '0.3rem 0.75rem', borderRadius: 99, fontSize: '0.8rem', color: 'var(--text)', fontWeight: 500 }}>
                 v{agent.version}
               </span>
             </div>
 
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem', lineHeight: 1.5 }}>
-              {agent.system_prompt.slice(0, 100)}{agent.system_prompt.length > 100 ? '…' : ''}
+            <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)', marginBottom: '1.5rem', lineHeight: 1.6, flexGrow: 1 }}>
+              {agent.system_prompt.slice(0, 120)}{agent.system_prompt.length > 120 ? '…' : ''}
             </p>
 
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
               {agent.tools.map(t => (
                 <span key={t.name} className={`badge ${t.is_destructive ? 'badge-fail' : 'badge-neutral'}`}>
                   {t.name}
@@ -74,9 +76,9 @@ export default function Dashboard() {
               ))}
             </div>
 
-            <hr className="divider" />
+            <hr className="divider" style={{ margin: '0 0 1.5rem 0' }} />
 
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.75rem' }} onClick={e => e.stopPropagation()}>
               <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => navigate(`/agents/${agent.id}/run`)}>
                 Run Tests
               </button>
