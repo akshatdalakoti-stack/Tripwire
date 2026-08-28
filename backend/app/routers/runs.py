@@ -5,6 +5,9 @@ GET    /api/runs/{run_id}            → Get a single run result
 GET    /api/runs/agent/{agent_id}    → Get all runs for an agent
 """
 
+import asyncio
+import os
+
 from fastapi import APIRouter, HTTPException
 from bson import ObjectId
 from app.database import runs_col, scenarios_col, agents_col
@@ -14,6 +17,11 @@ from app.services.sandbox import run_scenario
 from app.services.failure_classifier import classify_failure
 
 router = APIRouter()
+
+# Max scenarios executed concurrently. Bounds simultaneous Gemini calls so the
+# batch doesn't trip rate limits (each run itself makes several sequential
+# Gemini calls). Override with the MAX_CONCURRENT_RUNS env var.
+MAX_CONCURRENT_RUNS = int(os.getenv("MAX_CONCURRENT_RUNS", "4"))
 
 
 def serialize(doc: dict) -> dict:
@@ -35,23 +43,24 @@ async def start_run(agent_id: str):
     if not scenario_docs:
         raise HTTPException(status_code=400, detail="No scenarios found. Generate scenarios first.")
 
-    results = []
+    sem = asyncio.Semaphore(MAX_CONCURRENT_RUNS)
 
-    for sdoc in scenario_docs:
+    async def _run_one(sdoc: dict) -> dict:
         scenario = Scenario(**{k: v for k, v in sdoc.items() if k != "_id"})
         scenario_id = str(sdoc["_id"])
 
-        # Run scenario in sandbox
-        run_result = await run_scenario(agent, scenario)
-        run_result.scenario_id = scenario_id
-        run_result.agent_id = agent_id
+        # Gate the LLM-heavy work (sandbox loop + classifier) behind the
+        # semaphore so at most MAX_CONCURRENT_RUNS hit Gemini at once.
+        async with sem:
+            run_result = await run_scenario(agent, scenario)
+            run_result.scenario_id = scenario_id
+            run_result.agent_id = agent_id
+            classification = await classify_failure(run_result, scenario.description)
 
-        # Auto-classify failure (Gemini reads the trace)
-        classification = await classify_failure(run_result, scenario.description)
         run_result.failure_mode = classification["failure_mode"]
         run_result.failure_reason = classification["reasoning"]
 
-        # Persist run
+        # Persist run (cheap; outside the semaphore)
         data = run_result.model_dump()
         data["scenario_type"] = scenario.scenario_type.value
         data["classifier_confidence"] = classification["confidence"]
@@ -59,7 +68,10 @@ async def start_run(agent_id: str):
         insert = await runs_col().insert_one(data)
         data["id"] = str(insert.inserted_id)
         data.pop("_id", None)
-        results.append(data)
+        return data
+
+    # Execute scenarios concurrently; gather preserves input order in results.
+    results = list(await asyncio.gather(*(_run_one(sdoc) for sdoc in scenario_docs)))
 
     return {
         "agent_id": agent_id,
