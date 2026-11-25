@@ -3,7 +3,7 @@ models/run.py — Test run and execution trace schema.
 Captures every step the agent took during a sandboxed run.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, Any
 from datetime import datetime, timezone
 from enum import Enum
@@ -48,11 +48,11 @@ class RunResult(BaseModel):
     trace: list[TraceStep] = []
     total_tool_calls: int = 0
     duration_ms: Optional[int] = None
+    final_answer: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class RunResultInDB(RunResult):
     id: str = Field(..., alias="_id")
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)

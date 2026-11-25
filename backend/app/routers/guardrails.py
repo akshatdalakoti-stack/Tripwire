@@ -1,47 +1,68 @@
 """
 routers/guardrails.py — Guardrail probe execution + results
-POST   /api/guardrails/run/{agent_id}   → Run all safety probes
-GET    /api/guardrails/agent/{agent_id} → Get latest guardrail results
+GET    /api/guardrails/probes/{agent_id} → Preview the probes that would run
+POST   /api/guardrails/run/{agent_id}    → Run all safety probes (+ optional custom probes)
+GET    /api/guardrails/agent/{agent_id}  → Get latest guardrail results
 """
 
-from fastapi import APIRouter, HTTPException
-from bson import ObjectId
 from datetime import datetime, timezone
-from app.database import agents_col, reports_col
-from app.models.agent import AgentConfig
-from app.services.guardrail_tester import run_guardrail_probes, compute_guardrail_pass_rate
+
+from fastapi import APIRouter, Body
+from pydantic import BaseModel
+
+from app.database import reports_col
+from app.services.guardrail_tester import (
+    build_probes, compute_guardrail_pass_rate, guardrail_by_category, run_guardrail_probes,
+)
+from app.utils.loaders import load_agent
+from app.utils.ids import serialize
 
 router = APIRouter()
 
 
-@router.post("/run/{agent_id}")
-async def run_guardrails(agent_id: str):
-    agent_doc = await agents_col().find_one({"_id": ObjectId(agent_id)})
-    if not agent_doc:
-        raise HTTPException(status_code=404, detail="Agent not found")
+class GuardrailRequest(BaseModel):
+    extra_probes: list[str] = []
+    use_llm_judge: bool | None = None
 
-    agent = AgentConfig(**{k: v for k, v in agent_doc.items() if k != "_id"})
-    results = await run_guardrail_probes(agent)
+
+@router.get("/probes/{agent_id}")
+async def preview_probes(agent_id: str):
+    agent, _ = await load_agent(agent_id)
+    return [{"category": c, "probe": p} for c, p in build_probes(agent)]
+
+
+@router.post("/run/{agent_id}")
+async def run_guardrails(agent_id: str, req: GuardrailRequest | None = Body(default=None)):
+    agent, _ = await load_agent(agent_id)
+    req = req or GuardrailRequest()
+    results = await run_guardrail_probes(agent, req.extra_probes, req.use_llm_judge)
     pass_rate = compute_guardrail_pass_rate(results)
+    passed = sum(1 for r in results if r.refused)
+    dumped = [r.model_dump() for r in results]
+    categories = guardrail_by_category(results)
 
     # Persist as a lightweight guardrail snapshot
     snapshot = {
         "agent_id": agent_id,
+        "agent_version": agent.version,
         "type": "guardrail_snapshot",
-        "results": [r.model_dump() for r in results],
+        "results": dumped,
         "pass_rate": pass_rate,
+        "by_category": categories,
         "total_probes": len(results),
-        "passed_probes": sum(1 for r in results if r.refused),
+        "passed_probes": passed,
         "generated_at": datetime.now(timezone.utc),
     }
     await reports_col().insert_one(snapshot)
 
     return {
         "agent_id": agent_id,
+        "agent_version": agent.version,
         "total_probes": len(results),
-        "passed": sum(1 for r in results if r.refused),
+        "passed": passed,
         "pass_rate": pass_rate,
-        "results": [r.model_dump() for r in results],
+        "by_category": categories,
+        "results": dumped,
     }
 
 
@@ -52,7 +73,5 @@ async def get_guardrail_results(agent_id: str):
         sort=[("generated_at", -1)],
     )
     if not doc:
-        return {"agent_id": agent_id, "results": [], "pass_rate": 0.0}
-
-    doc["id"] = str(doc.pop("_id"))
-    return doc
+        return {"agent_id": agent_id, "results": [], "pass_rate": 0.0, "by_category": []}
+    return serialize(doc)

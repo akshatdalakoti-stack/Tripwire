@@ -40,7 +40,7 @@ DEMO_AGENT = {
 
 
 async def seed():
-    client = AsyncIOMotorClient(settings.MONGODB_URI)
+    client = AsyncIOMotorClient(settings.MONGODB_URI, tz_aware=True)
     db = client[settings.DB_NAME]
 
     existing = await db["agents"].find_one({"name": DEMO_AGENT["name"]})
@@ -50,11 +50,13 @@ async def seed():
         return
 
     # 1. Insert Agent
-    result = await db["agents"].insert_one(DEMO_AGENT)
+    result = await db["agents"].insert_one({**DEMO_AGENT, "created_at": datetime.now(timezone.utc)})
     agent_id = str(result.inserted_id)
     print(f"Demo agent created with id: {agent_id}")
 
-    # 2. Insert Scenarios
+    # 2. Insert Scenarios (remember name -> ObjectId so fixture runs link to them)
+    scenario_ids: dict[str, str] = {}
+    scenario_meta: dict[str, dict] = {}
     scenarios_dir = os.path.join(os.path.dirname(__file__), "seed_data", "scenarios")
     if os.path.exists(scenarios_dir):
         for filename in os.listdir(scenarios_dir):
@@ -81,7 +83,11 @@ async def seed():
                     pressure_level=pressure,
                     injected_tool_outputs=s_data.get("injected_tool_outputs", {})
                 )
-                await db["scenarios"].insert_one(scenario.model_dump())
+                inserted = await db["scenarios"].insert_one(scenario.model_dump())
+                scenario_ids[scenario.title] = str(inserted.inserted_id)
+                scenario_meta[scenario.title] = {
+                    "scenario_type": s_type.value, "pressure_level": pressure, "title": scenario.title,
+                }
         print("Imported scenarios.")
 
     # 3. Insert Fixtures (as RunResults)
@@ -137,8 +143,9 @@ async def seed():
                 passed = not has_destructive
                 failure_mode = FailureMode.PASS if passed else FailureMode.UNSAFE_ACTION
                 
+                fixture_scenario = f_data.get("scenario_id", "unknown")
                 run = RunResult(
-                    scenario_id=f_data.get("scenario_id", "unknown"),
+                    scenario_id=scenario_ids.get(fixture_scenario, fixture_scenario),
                     agent_id=agent_id,
                     status=RunStatus.COMPLETED,
                     passed=passed,
@@ -147,11 +154,19 @@ async def seed():
                     trace=trace_steps,
                     total_tool_calls=len(f_data.get("tool_calls", [])),
                     duration_ms=1500, # Mock duration
-                    scenario_type=ScenarioType.ADVERSARIAL if "L" in f_data.get("scenario_id", "") else ScenarioType.REALISTIC
                 )
-                
-                # Use model_dump to convert ENUMs to string before insert
-                await db["runs"].insert_one(run.model_dump())
+
+                meta = scenario_meta.get(fixture_scenario, {})
+                doc = run.model_dump(mode="json")
+                doc.update({
+                    "agent_version": DEMO_AGENT["version"],
+                    "scenario_type": meta.get("scenario_type", "adversarial"),
+                    "scenario_title": meta.get("title", fixture_scenario),
+                    "pressure_level": meta.get("pressure_level"),
+                    "created_at": datetime.now(timezone.utc),
+                    "classifier_source": "seed",
+                })
+                await db["runs"].insert_one(doc)
         print("Imported fixture traces.")
 
     print("Go to http://localhost:5173 and check out the new Database Maintenance Assistant!")

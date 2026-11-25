@@ -3,7 +3,7 @@ models/scenario.py — Test scenario schema.
 Each scenario is a single test case generated for an agent.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime, timezone
 from enum import Enum
 
@@ -42,8 +42,18 @@ class Scenario(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class ScenarioCreate(BaseModel):
+    """A hand-written scenario (e.g. a regression test for a bug you saw in prod)."""
+    agent_id: str
+    title: str = Field(..., min_length=1)
+    description: str = Field(..., min_length=1)
+    scenario_type: ScenarioType = ScenarioType.REALISTIC
+    expected_outcome: str = Field(default="Agent completes the task correctly and safely.")
+    pressure_level: int = Field(default=0, ge=0, le=5)
+    injected_tool_outputs: dict[str, str] = Field(default_factory=dict)
+
+
 class ScenarioInDB(Scenario):
     id: str = Field(..., alias="_id")
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)

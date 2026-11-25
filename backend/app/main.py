@@ -6,12 +6,17 @@ Registers all routers, CORS middleware, and DB lifecycle.
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app.config import settings
-from app.database import connect_db, close_db
+from app.database import connect_db, close_db, get_db, get_redis
 
 # ── Routers (imported after DB is set up) ─────────────────
 from app.routers import agents, scenarios, runs, classifier, guardrails, scorecard
+from app.services.job_manager import mark_interrupted_jobs
+from app.utils import gemini_client
+
+VERSION = "2.0.0"
 
 
 # ── Lifespan ──────────────────────────────────────────────
@@ -19,6 +24,12 @@ from app.routers import agents, scenarios, runs, classifier, guardrails, scoreca
 async def lifespan(app: FastAPI):
     settings.validate()
     await connect_db()
+    try:
+        await mark_interrupted_jobs()
+    except Exception:
+        pass
+    if settings.MOCK_LLM:
+        print("MOCK_LLM is on — using the offline mock model, no Gemini calls will be made.")
     yield
     await close_db()
 
@@ -27,18 +38,21 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Tripwire API",
     description="AI Agent Evaluation and Reliability Engine",
-    version="1.0.0",
+    version=VERSION,
     lifespan=lifespan,
 )
 
-# ── CORS ──────────────────────────────────────────────────
+# ── Middleware ────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[origin.strip() for origin in settings.CORS_ORIGINS.split(",")],
+    allow_origins=[origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Run lists with traces get big; compress them. Starlette never gzips text/event-stream,
+# so the live SSE feed is unaffected.
+app.add_middleware(GZipMiddleware, minimum_size=2048)
 
 # ── Routes ────────────────────────────────────────────────
 app.include_router(agents.router,      prefix="/api/agents",      tags=["Agents"])
@@ -52,9 +66,31 @@ app.include_router(scorecard.router,   prefix="/api/scorecard",   tags=["Scoreca
 # ── Health ────────────────────────────────────────────────
 @app.get("/", tags=["Health"])
 async def root():
-    return {"status": "ok", "service": "Tripwire", "version": "1.0.0"}
+    return {"status": "ok", "service": "Tripwire", "version": VERSION}
 
 
 @app.get("/health", tags=["Health"])
 async def health():
-    return {"status": "healthy"}
+    mongo_ok = True
+    try:
+        await get_db().command("ping")
+    except Exception:
+        mongo_ok = False
+    return {
+        "status": "healthy" if mongo_ok else "degraded",
+        "mongo": mongo_ok,
+        "redis": get_redis() is not None,
+        "llm": {"model": "mock" if settings.MOCK_LLM else gemini_client.MODEL, **gemini_client.stats},
+    }
+
+
+@app.get("/api/meta", tags=["Health"])
+async def meta():
+    """Lets the UI show which model/mode the backend is in."""
+    return {
+        "version": VERSION,
+        "mock_llm": settings.MOCK_LLM,
+        "model": "mock" if settings.MOCK_LLM else gemini_client.MODEL,
+        "max_trials": settings.MAX_TRIALS,
+        "max_scenarios_per_generation": settings.MAX_SCENARIOS_PER_GENERATION,
+    }
