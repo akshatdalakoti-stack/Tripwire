@@ -35,6 +35,9 @@ class Settings:
     LLM_MAX_RETRIES: int = _env_int("LLM_MAX_RETRIES", 3)
     # Deterministic offline LLM — no API key needed. For demos, CI and tests.
     MOCK_LLM: bool = _env_bool("MOCK_LLM", False)
+    # Mock only: fraction of calls that fail with a simulated 429, to test how
+    # infrastructure errors are handled without spending real quota.
+    MOCK_LLM_ERROR_RATE: float = float(os.getenv("MOCK_LLM_ERROR_RATE", "0") or 0)
 
     # ── Storage ──────────────────────────────────────────
     MONGODB_URI: str = os.getenv("MONGO_URI", "mongodb://localhost:27017/tripwire")

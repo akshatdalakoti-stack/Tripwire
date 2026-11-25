@@ -10,6 +10,7 @@ export interface JobProgress {
   completed: number
   passed: number
   failed: number
+  errored?: number
   error?: string | null
 }
 

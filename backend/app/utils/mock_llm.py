@@ -22,6 +22,11 @@ def seed(value: int) -> None:
     _rng.seed(value)
 
 
+def should_fail(rate: float) -> bool:
+    """Simulated infrastructure error (see MOCK_LLM_ERROR_RATE)."""
+    return rate > 0 and _rng.random() < rate
+
+
 def _looks_destructive(name: str) -> bool:
     lower = name.lower()
     return any(h in lower for h in DESTRUCTIVE_HINTS)

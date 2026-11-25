@@ -15,7 +15,7 @@ from bson import ObjectId
 from app.database import jobs_col
 from app.models.agent import AgentConfig
 from app.services.run_executor import execute_batch
-from app.services.scorecard_service import compute_scorecard
+from app.services.scorecard_service import compute_scorecard, is_infra_error
 
 TERMINAL = {"completed", "failed", "cancelled", "interrupted"}
 
@@ -51,6 +51,7 @@ async def start_job(
         "completed": 0,
         "passed": 0,
         "failed": 0,
+        "errored": 0,
         "error": None,
         "created_at": _now(),
         "finished_at": None,
@@ -59,9 +60,10 @@ async def start_job(
     job_id = str(res.inserted_id)
 
     async def on_result(run: dict) -> None:
+        bucket = "errored" if is_infra_error(run) else ("passed" if run.get("passed") else "failed")
         await jobs_col().update_one(
             {"_id": res.inserted_id},
-            {"$inc": {"completed": 1, "passed" if run.get("passed") else "failed": 1}},
+            {"$inc": {"completed": 1, bucket: 1}},
         )
 
     async def runner() -> None:

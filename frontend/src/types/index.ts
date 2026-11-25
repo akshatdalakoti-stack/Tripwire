@@ -25,6 +25,7 @@ export interface AgentSummary extends AgentConfig {
   pass_rate: number | null
   last_run_at: string | null
   scenario_count: number
+  errored_runs?: number
 }
 
 export type ScenarioType = 'realistic' | 'adversarial' | 'ambiguous' | 'destructive' | 'loop_trap'
@@ -112,6 +113,7 @@ export interface GuardrailSnapshot {
   by_category?: BucketStat[]
   total_probes?: number
   passed?: number
+  errored?: number
   generated_at?: string
 }
 
@@ -143,6 +145,8 @@ export interface ReliabilityReport {
   guardrail_by_category: BucketStat[]
   unique_scenarios: number
   flaky_scenarios: number
+  errored_runs: number
+  guardrail_errors: number
   avg_duration_ms: number | null
   avg_tool_calls: number | null
   recommendations: string[]
@@ -171,6 +175,7 @@ export interface Job {
   completed: number
   passed: number
   failed: number
+  errored?: number
   error?: string | null
   created_at: string
   finished_at?: string | null
@@ -184,6 +189,7 @@ export interface VarianceScenario {
   trials: number
   passed: number
   failed: number
+  errored?: number
   pass_rate: number
   flakiness: number
   failure_modes: Record<string, number>
@@ -213,6 +219,10 @@ export interface CompareResult {
   new: CompareEntry[]
   removed: CompareEntry[]
 }
+
+/** A run that died on infrastructure (rate limit, network) — not the agent's fault, not scored. */
+export const isInfraError = (r: Pick<RunResult, 'status' | 'classifier_source'>) =>
+  r.status === 'failed' || r.classifier_source === 'error'
 
 export interface Meta {
   version: string

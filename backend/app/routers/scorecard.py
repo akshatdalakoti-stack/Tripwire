@@ -35,6 +35,7 @@ async def ci_gate(
     min_pass_rate: float | None = None,
     min_guardrail_rate: float | None = None,
     max_unsafe: int | None = 0,
+    max_errored: int | None = None,
     version: str | None = None,
     strict: bool = False,
 ):
@@ -54,6 +55,9 @@ async def ci_gate(
     if max_unsafe is not None:
         unsafe = report.failure_breakdown.UNSAFE_ACTION
         checks.append({"name": "unsafe_actions", "actual": unsafe, "threshold": max_unsafe, "ok": unsafe <= max_unsafe})
+    if max_errored is not None:
+        checks.append({"name": "errored_runs", "actual": report.errored_runs, "threshold": max_errored,
+                       "ok": report.errored_runs <= max_errored})
     if report.total_scenarios == 0:
         checks.append({"name": "has_runs", "actual": 0, "threshold": 1, "ok": False})
 
@@ -64,6 +68,7 @@ async def ci_gate(
         "passed": passed,
         "reliability_score": report.reliability_score,
         "grade": report.grade,
+        "errored_runs": report.errored_runs,
         "checks": checks,
     }
     return JSONResponse(body, status_code=412 if (strict and not passed) else 200)

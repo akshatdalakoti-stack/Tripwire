@@ -212,6 +212,7 @@ a.btn { text-decoration: none; }
 .progress-track { display: flex; height: 8px; background: var(--surface-2); border-radius: 99px; overflow: hidden; }
 .progress-pass { background: var(--success); transition: width 0.4s ease; }
 .progress-fail { background: var(--danger); transition: width 0.4s ease; }
+.progress-error { background: #52525b; transition: width 0.4s ease; }
 
 .tabs { display: flex; gap: 0.25rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); }
 .tab { background: none; border: none; color: var(--text-muted); padding: 0.6rem 1rem; font-size: 0.95rem; border-bottom: 2px solid transparent; margin-bottom: -1px; }
@@ -225,6 +226,7 @@ a.btn { text-decoration: none; }
 .row-btn:hover { background: rgba(255,255,255,0.02); }
 .run-row { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
 .run-row-failed { border-left: 3px solid var(--danger); }
+.run-row-errored { border-left: 3px solid #52525b; opacity: 0.8; }
 .run-detail { padding: 1rem; border-top: 1px solid var(--border); background: var(--surface-2); }
 .reason { color: var(--text); font-size: 0.875rem; margin-bottom: 0.75rem; }
 .final-answer { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.6rem 0.8rem; font-size: 0.85rem; margin-bottom: 0.75rem; white-space: pre-wrap; }

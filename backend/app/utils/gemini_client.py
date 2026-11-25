@@ -74,8 +74,11 @@ async def _call_model(model: str, prompt: str, json_mode: bool, temperature: flo
 
 async def _generate(prompt: str, json_mode: bool = False, temperature: float | None = None) -> str:
     if settings.MOCK_LLM:
-        from app.utils.mock_llm import mock_generate
+        from app.utils.mock_llm import mock_generate, should_fail
         stats["requests"] += 1
+        if should_fail(settings.MOCK_LLM_ERROR_RATE):
+            stats["failures"] += 1
+            raise HTTPException(status_code=429, detail="AI rate limit exceeded after retries (simulated by MOCK_LLM_ERROR_RATE).")
         return mock_generate(prompt, json_mode)
 
     models = [MODEL]

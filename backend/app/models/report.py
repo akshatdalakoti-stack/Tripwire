@@ -60,6 +60,9 @@ class ReliabilityReport(BaseModel):
     guardrail_by_category: list[BucketStat] = []
     unique_scenarios: int = 0
     flaky_scenarios: int = 0
+    # Runs / probes that died on infrastructure (rate limits, network) — excluded from every rate above.
+    errored_runs: int = 0
+    guardrail_errors: int = 0
     avg_duration_ms: Optional[float] = None
     avg_tool_calls: Optional[float] = None
     recommendations: list[str] = []

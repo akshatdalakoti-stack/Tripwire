@@ -8,7 +8,7 @@ responses, so it can be re-checked.
 |---|---|---|
 | `python -m bench.bench_concurrency` | nothing (simulated latency) | v1 vs v2 throughput, API freeze, LLM calls saved |
 | `python -m bench.probe_detectors` | nothing | where the rule-based detectors break |
-| `python -m bench.bench_live` | `GEMINI_API_KEY` (~40–60 calls) | real latency, quota errors, judge vs heuristic |
+| `python -m bench.bench_live` | `GEMINI_API_KEY` (~40–60 calls; `BENCH_PACE=12.5` stays under 5/min) | real latency, quota errors, judge vs heuristic |
 
 Run them from `backend/` (prefix the first two with `MOCK_LLM=1`).
 
@@ -20,6 +20,7 @@ Run them from `backend/` (prefix the first two with `MOCK_LLM=1`).
 |---|---|---|
 | Free-tier Gemini quota | **5 requests/min, 20 requests/day** per model (`gemini-3.6-flash`) | One run takes ~4 calls, so a free key supports **~4–5 scenario runs per day** |
 | Live run under the quota | **7 of 8 runs failed with HTTP 429** even after retries (46 retries, 81 requests) | Concurrency 4 is guaranteed to hit the 5/min limit |
+| Rate-limited runs in the score | **Fixed:** 13 of 28 errored runs used to drag the pass rate to 50%; now 93% over the 15 scored runs | Infra errors are reported separately and no longer count against the agent |
 | Slowest single Gemini call | **96.9 s** (p50 0.16 s, p95 4.5 s, n=81) | A run's wall time has a very long tail |
 | Old (v1) server freeze during a batch | **19.2 s** (whole batch) → **0.02 s** in v2 | v1 could not answer any request while tests ran |
 | Throughput v1 → v2 (simulated 0.4 s/call, 12 scenarios) | **19.2 s → 4.9 s (3.9×)**; guardrails **5.7 s → 0.4 s (14×)** | Speed-up is capped by `MAX_CONCURRENT_RUNS=4` and, live, by the quota |
@@ -54,13 +55,21 @@ Run them from `backend/` (prefix the first two with `MOCK_LLM=1`).
 **Mitigations available today.** `MOCK_LLM=1` (offline), a paid Gemini key, or `GEMINI_FALLBACK_MODEL` set to a
 different model (quotas are per model, so the fallback has its own allowance).
 
-## 2. Errors are scored as agent failures
+## 2. ~~Errors are scored as agent failures~~ (fixed)
 
-**Measured in code and in the live run.** A run that dies on a rate limit is stored as `UNKNOWN`, `passed=False`,
-and counts against the pass rate. A guardrail probe that errors counts as "not refused". In the live run, that
-would have reported a **12.5% pass rate (1/8)** and a **69% guardrail rate (11/16)**, although no agent failure
-was actually observed: every one of the 11 answered probes was a refusal. The report does show errors as their own
-category, but the score does not leave them out.
+**The problem, measured.** Before this fix, a run that died on a rate limit was stored as `UNKNOWN`,
+`passed=False`, and counted against the pass rate. A guardrail probe that errored counted as "not refused". In the
+live run, that would have reported a **12.5% pass rate (1/8)** and a **69% guardrail rate (11/16)**, although no
+agent failure was actually observed: every one of the 11 answered probes was a refusal.
+
+**The fix.** Runs that hit infrastructure errors (`status=failed` or `classifier_source=error`) and probes with
+`verdict_source=error` are now left out of every rate, bucket, flakiness figure, version diff and dashboard pass
+rate. They are reported separately as "errored" (in jobs, the run list, the scorecard, the guardrail panel and the
+CI gate, which accepts `max_errored=`), and the report recommends re-running them.
+
+**Verified** with `MOCK_LLM_ERROR_RATE=0.3`, which simulates 429s without spending quota. Out of 28 runs, 13 errored.
+The old logic would have shown **50% (14/28)**; v2 shows **93% (14/15 scored)**, with 13 errored runs listed
+separately. Guardrails: 4 of 14 probes errored, and the rate is computed over the 10 answered.
 
 ## 3. Statistical noise
 
@@ -146,7 +155,7 @@ accuracy estimate on real traffic.
 | Limitation | Fix |
 |---|---|
 | Quota: 5/min, 20/day | Requests-per-minute limiter, honour `RetryInfo`, multi-provider support (OpenAI-compatible / Ollama), record-and-replay cache |
-| Errors scored as failures | Leave errored runs and probes out of the score; show them as "infra errors" |
+| ~~Errors scored as failures~~ | **Done:** errored runs/probes are excluded and reported separately |
 | Statistical noise | Show Wilson intervals; significance test for the version diff; suggest the trial count needed |
 | Keyword detectors | Use the LLM judge by default with the heuristic as a cross-check; label ~100 traces by hand and publish precision/recall |
 | Simulated agent | "Bring your own agent": call a real agent over HTTP/OpenAI-compatible APIs/MCP with native function calling |

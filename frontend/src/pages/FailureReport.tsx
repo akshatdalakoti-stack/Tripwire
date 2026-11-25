@@ -128,7 +128,7 @@ export default function FailureReport() {
 
   const flaky = variance?.scenarios.filter(s => s.flakiness > 0) ?? []
   const failures = FAILURE_MODES.filter(m => (report.failure_breakdown?.[m] ?? 0) > 0)
-  const shownGuardrails = (guardrails?.results ?? []).filter(r => guardrailFilter === 'all' || !r.refused)
+  const shownGuardrails = (guardrails?.results ?? []).filter(r => guardrailFilter === 'all' || (!r.refused && r.verdict_source !== 'error'))
   const versions = report.versions_available ?? []
 
   return (
@@ -177,7 +177,9 @@ export default function FailureReport() {
               { label: 'Passed', value: report.passed, color: 'var(--success)' },
               { label: 'Failed', value: report.failed, color: 'var(--danger)' },
               { label: 'Flaky', value: report.flaky_scenarios, color: report.flaky_scenarios ? 'var(--warning)' : undefined },
-              { label: 'Avg time', value: report.avg_duration_ms != null ? `${(report.avg_duration_ms / 1000).toFixed(1)}s` : '—' },
+              report.errored_runs > 0
+                ? { label: 'Errored', value: report.errored_runs, color: 'var(--text-muted)' }
+                : { label: 'Avg time', value: report.avg_duration_ms != null ? `${(report.avg_duration_ms / 1000).toFixed(1)}s` : '—' },
             ].map(s => (
               <div key={s.label} className="stat-card">
                 <div className="stat-value" style={{ color: s.color }}>{s.value}</div>
@@ -201,7 +203,12 @@ export default function FailureReport() {
               </div>
             )
           })}
-          {!report.total_scenarios && <p className="muted-sm">No runs yet for this version.</p>}
+          {!report.total_scenarios && <p className="muted-sm">No scored runs yet for this version.</p>}
+          {report.errored_runs > 0 && (
+            <p className="muted-sm" style={{ marginTop: '0.75rem' }}>
+              {report.errored_runs} run{report.errored_runs === 1 ? '' : 's'} hit infrastructure errors (rate limits, API errors) and {report.errored_runs === 1 ? 'is' : 'are'} not counted above.
+            </p>
+          )}
           {report.total_scenarios > 0 && !failures.length && <p style={{ color: 'var(--success)' }}>✓ No failures — every run passed.</p>}
           {failures.length > 0 && <p className="muted-sm" style={{ marginTop: '1rem' }}>{failures.map(m => `${FAILURE_CONFIG[m].label}: ${FAILURE_CONFIG[m].hint.toLowerCase()}`).join(' · ')}</p>}
         </div>
@@ -316,6 +323,11 @@ export default function FailureReport() {
                 {Math.round(guardrails.pass_rate * 100)}% refused
               </span>
             )}
+            {guardrails && (guardrails.errored ?? guardrails.results.filter(r => r.verdict_source === 'error').length) > 0 && (
+              <span className="muted-sm" style={{ marginLeft: '0.5rem' }}>
+                · {guardrails.errored ?? guardrails.results.filter(r => r.verdict_source === 'error').length} errored, not scored
+              </span>
+            )}
           </h2>
           <div className="btn-row" style={{ alignItems: 'center' }}>
             <input className="form-input" style={{ width: 280 }} placeholder="Add your own attack prompt (optional)"
@@ -340,16 +352,18 @@ export default function FailureReport() {
                 <div className="segmented">
                   <button className={guardrailFilter === 'all' ? 'active' : ''} onClick={() => setGuardrailFilter('all')}>all</button>
                   <button className={guardrailFilter === 'failed' ? 'active' : ''} onClick={() => setGuardrailFilter('failed')}>
-                    failed ({guardrails.results.filter(r => !r.refused).length})
+                    failed ({guardrails.results.filter(r => !r.refused && r.verdict_source !== 'error').length})
                   </button>
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: 460, overflowY: 'auto' }}>
                 {shownGuardrails.map((r, i) => (
-                  <div key={i} className="probe" style={{ borderColor: r.refused ? 'rgba(34,197,94,0.25)' : 'rgba(239,68,68,0.35)' }}>
+                  <div key={i} className="probe" style={{ borderColor: r.verdict_source === 'error' ? 'var(--border)' : r.refused ? 'rgba(34,197,94,0.25)' : 'rgba(239,68,68,0.35)' }}>
                     <div className="row-between" style={{ marginBottom: '0.3rem', gap: '0.5rem' }}>
                       <span className="muted-sm" style={{ fontStyle: 'italic' }}>“{r.probe}”</span>
-                      <span className={`badge ${r.refused ? 'badge-pass' : 'badge-fail'}`}>{r.refused ? 'refused' : 'complied'}</span>
+                      {r.verdict_source === 'error'
+                        ? <span className="badge badge-neutral">error</span>
+                        : <span className={`badge ${r.refused ? 'badge-pass' : 'badge-fail'}`}>{r.refused ? 'refused' : 'complied'}</span>}
                     </div>
                     <div style={{ fontSize: '0.8rem' }}>{r.response_snippet.slice(0, 220)}{r.response_snippet.length > 220 ? '…' : ''}</div>
                     <div className="muted-sm" style={{ marginTop: '0.3rem', fontSize: '0.72rem' }}>

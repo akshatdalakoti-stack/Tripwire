@@ -26,6 +26,7 @@ from app.config import settings
 from app.database import runs_col, scenarios_col, jobs_col, reports_col
 from app.services.job_manager import TERMINAL, cancel_job, start_job
 from app.services.run_executor import execute_batch, load_scenarios
+from app.services.scorecard_service import is_infra_error
 from app.utils.ids import parse_object_id, serialize
 from app.utils.loaders import load_agent
 
@@ -69,8 +70,11 @@ def _aggregate_variance(runs: list[dict], titles: dict[str, str] | None = None) 
             "title": r.get("scenario_title") or titles.get(sid, sid),
             "scenario_type": r.get("scenario_type"),
             "pressure_level": r.get("pressure_level"),
-            "trials": 0, "passed": 0, "failed": 0, "failure_modes": {},
+            "trials": 0, "passed": 0, "failed": 0, "errored": 0, "failure_modes": {},
         })
+        if is_infra_error(r):
+            g["errored"] += 1
+            continue
         g["trials"] += 1
         if r.get("passed"):
             g["passed"] += 1
@@ -81,7 +85,11 @@ def _aggregate_variance(runs: list[dict], titles: dict[str, str] | None = None) 
 
     out = []
     for g in by_scen.values():
-        n = g["trials"] or 1
+        if not g["trials"]:
+            g["pass_rate"], g["flakiness"] = 0.0, 0.0
+            out.append(g)
+            continue
+        n = g["trials"]
         g["pass_rate"] = round(g["passed"] / n, 4)
         g["flakiness"] = round(1 - abs(g["passed"] - g["failed"]) / n, 4)
         out.append(g)
@@ -94,6 +102,8 @@ def _majority_by_scenario(runs: list[dict]) -> dict[str, bool]:
     """For each scenario, did it pass in the majority of its trials? (ties -> pass)"""
     agg: dict[str, list[int]] = {}
     for r in runs:
+        if is_infra_error(r):
+            continue
         sid = str(r.get("scenario_id"))
         a = agg.setdefault(sid, [0, 0])  # [passed, failed]
         if r.get("passed"):
@@ -132,7 +142,8 @@ async def start_run(agent_id: str, trials: int = 1, req: RunRequest | None = Bod
         "trials": trials,
         "total_runs": len(results),
         "passed": sum(1 for r in results if r.get("passed")),
-        "failed": sum(1 for r in results if not r.get("passed")),
+        "failed": sum(1 for r in results if not r.get("passed") and not is_infra_error(r)),
+        "errored": sum(1 for r in results if is_infra_error(r)),
         "scenario_stats": _aggregate_variance(results),
         "runs": results,
     }
@@ -198,7 +209,8 @@ async def job_events(job_id: str, request: Request):
                 seen.append(r["_id"])
                 yield sse("run", serialize(r))
 
-            progress = {k: job.get(k) for k in ("status", "total", "completed", "passed", "failed", "error")}
+            progress = {k: job.get(k) for k in ("status", "total", "completed", "passed", "failed", "errored", "error")}
+            progress["errored"] = progress["errored"] or 0
             if progress != last_progress:
                 last_progress = progress
                 yield sse("progress", progress)
@@ -278,7 +290,7 @@ async def compare_versions(
     fail. Versions default to the two most recent seen in the run history."""
     docs = await runs_col().find(
         {"agent_id": agent_id},
-        {"scenario_id": 1, "agent_version": 1, "created_at": 1, "passed": 1},
+        {"scenario_id": 1, "agent_version": 1, "created_at": 1, "passed": 1, "status": 1, "classifier_source": 1},
     ).to_list(length=10000)
     if not docs:
         raise HTTPException(status_code=400, detail="No runs found for this agent.")
@@ -331,7 +343,8 @@ async def compare_versions(
             unchanged.append({**entry, "passed": h})
 
     def rate(rs):
-        return round(sum(1 for r in rs if r.get("passed")) / len(rs), 4) if rs else None
+        scored = [r for r in rs if not is_infra_error(r)]
+        return round(sum(1 for r in scored if r.get("passed")) / len(scored), 4) if scored else None
 
     return {
         "agent_id": agent_id,

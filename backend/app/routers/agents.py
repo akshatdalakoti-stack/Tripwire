@@ -43,7 +43,10 @@ async def list_agents():
     }
     run_stats = {
         d["_id"]: d async for d in runs_col().aggregate([
+            {"$addFields": {"_errored": {"$or": [{"$eq": ["$status", "failed"]},
+                                                 {"$eq": ["$classifier_source", "error"]}]}}},
             {"$group": {"_id": "$agent_id", "runs": {"$sum": 1},
+                        "errored": {"$sum": {"$cond": ["$_errored", 1, 0]}},
                         "passed": {"$sum": {"$cond": ["$passed", 1, 0]}},
                         "last_run_at": {"$max": "$created_at"}}},
         ])
@@ -62,7 +65,9 @@ async def list_agents():
         a["latest_score"] = score["score"] if score else None
         a["latest_grade"] = score.get("grade") if score else None
         a["run_count"] = stats.get("runs", 0)
-        a["pass_rate"] = round(stats["passed"] / stats["runs"], 4) if stats.get("runs") else None
+        scored = stats.get("runs", 0) - stats.get("errored", 0)
+        a["errored_runs"] = stats.get("errored", 0)
+        a["pass_rate"] = round(stats["passed"] / scored, 4) if scored > 0 else None
         last = stats.get("last_run_at")
         a["last_run_at"] = last if isinstance(last, datetime) else None
         a["scenario_count"] = scenario_counts.get(a["id"], 0)

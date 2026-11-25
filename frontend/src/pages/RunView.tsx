@@ -5,13 +5,13 @@ import {
   listJobs, startJob,
 } from '../api/client'
 import type { AgentConfig, Job, RunResult, Scenario, ScenarioType } from '../types'
-import { SCENARIO_TYPES } from '../types'
+import { SCENARIO_TYPES, isInfraError } from '../types'
 import FailureBadge from '../components/FailureBadge'
 import TraceViewer from '../components/TraceViewer'
 import { useToast } from '../components/Toast'
 import { useJobStream, type JobProgress } from '../hooks/useJobStream'
 
-type Filter = 'all' | 'failed' | 'passed'
+type Filter = 'all' | 'failed' | 'passed' | 'errored'
 
 function levelClass(level: number) {
   return level >= 4 ? 'badge-fail' : level >= 2 ? 'badge-warn' : 'badge-neutral'
@@ -19,7 +19,7 @@ function levelClass(level: number) {
 
 function RunRow({ run, expanded, onToggle }: { run: RunResult; expanded: boolean; onToggle: () => void }) {
   return (
-    <div className={`run-row fade-in ${run.passed ? '' : 'run-row-failed'}`}>
+    <div className={`run-row fade-in ${run.passed ? '' : isInfraError(run) ? 'run-row-errored' : 'run-row-failed'}`}>
       <button className="row-btn" onClick={onToggle} aria-expanded={expanded}>
         <FailureBadge mode={run.failure_mode} />
         <span style={{ flex: 1, fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -33,6 +33,9 @@ function RunRow({ run, expanded, onToggle }: { run: RunResult; expanded: boolean
 
       {expanded && (
         <div className="run-detail">
+          {isInfraError(run) && (
+            <p className="muted-sm" style={{ marginBottom: '0.6rem' }}>⚠ Infrastructure error — this run is not counted in the score. Re-run it when the API quota allows.</p>
+          )}
           {run.failure_reason && (
             <p className="reason">
               {run.failure_reason}
@@ -153,7 +156,7 @@ export default function RunView() {
   const [now, setNow] = useState(Date.now())
 
   const onDone = useCallback((p: JobProgress) => {
-    if (p.status === 'completed') toast(`Run finished: ${p.passed} passed, ${p.failed} failed`, p.failed ? 'info' : 'success')
+    if (p.status === 'completed') toast(`Run finished: ${p.passed} passed, ${p.failed} failed${p.errored ? `, ${p.errored} errored (not scored)` : ''}`, p.failed || p.errored ? 'info' : 'success')
     else if (p.status === 'cancelled') toast('Run cancelled', 'info')
     else toast(`Run ${p.status}${p.error ? `: ${p.error}` : ''}`, 'error')
   }, [toast])
@@ -196,8 +199,11 @@ export default function RunView() {
     [runs, scenarios],
   )
 
+  const matches = (r: RunResult, f: Filter) =>
+    f === 'all' || (f === 'passed' ? r.passed : f === 'errored' ? isInfraError(r) : !r.passed && !isInfraError(r))
+
   const visible = useMemo(() => {
-    const list = filter === 'all' ? runs : runs.filter(r => (filter === 'passed' ? r.passed : !r.passed))
+    const list = runs.filter(r => matches(r, filter))
     // Failures first once the run is over; arrival order while live.
     return running ? list : [...list].sort((a, b) => Number(a.passed) - Number(b.passed))
   }, [runs, filter, running])
@@ -267,7 +273,7 @@ export default function RunView() {
             )}
             {!running && failedScenarioIds.length > 0 && (
               <button className="btn btn-ghost" onClick={() => launch(failedScenarioIds)} disabled={starting}>
-                ↻ Re-run {failedScenarioIds.length} failed
+                ↻ Re-run {failedScenarioIds.length} failed/errored
               </button>
             )}
             <button id="run-tests-btn" className="btn btn-primary" onClick={() => launch()} disabled={running || starting || !scenarios.length}>
@@ -281,12 +287,14 @@ export default function RunView() {
             <div className="progress-track" aria-label="Run progress">
               <div className="progress-pass" style={{ width: `${p.total ? (p.passed / p.total) * 100 : 0}%` }} />
               <div className="progress-fail" style={{ width: `${p.total ? (p.failed / p.total) * 100 : 0}%` }} />
+              <div className="progress-error" style={{ width: `${p.total ? ((p.errored ?? 0) / p.total) * 100 : 0}%` }} />
             </div>
             <div className="row-between muted-sm" style={{ marginTop: '0.5rem' }}>
               <span>
                 <strong style={{ color: 'var(--text)' }}>{p.completed}/{p.total}</strong> runs ·{' '}
                 <span style={{ color: 'var(--success)' }}>{p.passed} passed</span> ·{' '}
                 <span style={{ color: 'var(--danger)' }}>{p.failed} failed</span>
+                {(p.errored ?? 0) > 0 && <> · <span title="Rate limits / API errors — not counted in the score">{p.errored} errored</span></>}
                 {job && !running && <> · v{job.agent_version} · {new Date(job.created_at).toLocaleString()}</>}
               </span>
               <span>{running ? `${pct}%${elapsed != null ? ` · ${elapsed}s` : ''}` : p.status}</span>
@@ -319,9 +327,9 @@ export default function RunView() {
             <>
               <div className="row-between" style={{ marginBottom: '1rem' }}>
                 <div className="segmented">
-                  {(['all', 'failed', 'passed'] as Filter[]).map(f => (
+                  {(['all', 'failed', 'passed', 'errored'] as Filter[]).filter(f => f !== 'errored' || runs.some(isInfraError)).map(f => (
                     <button key={f} className={filter === f ? 'active' : ''} onClick={() => setFilter(f)}>
-                      {f} ({f === 'all' ? runs.length : runs.filter(r => (f === 'passed' ? r.passed : !r.passed)).length})
+                      {f} ({runs.filter(r => matches(r, f)).length})
                     </button>
                   ))}
                 </div>

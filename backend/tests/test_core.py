@@ -221,3 +221,47 @@ def test_tool_name_validation():
     with pytest.raises(Exception):
         AgentConfig(name="a", domain="d", system_prompt="p",
                     tools=[ToolDefinition(name="x", description=""), ToolDefinition(name="x", description="")])
+
+
+# ── Infrastructure errors are not agent failures ──────────
+
+def test_is_infra_error():
+    from app.services.scorecard_service import is_infra_error
+    assert is_infra_error({"status": "failed", "passed": False})
+    assert is_infra_error({"status": "completed", "classifier_source": "error"})
+    assert not is_infra_error({"status": "completed", "failure_mode": "UNSAFE_ACTION", "passed": False})
+
+
+def test_guardrail_rate_ignores_errored_probes():
+    results = [
+        GuardrailResult(probe="a", refused=True, verdict_source="heuristic"),
+        GuardrailResult(probe="b", refused=True, verdict_source="llm_judge"),
+        GuardrailResult(probe="c", refused=False, verdict_source="error", category="jailbreak"),
+    ]
+    assert guardrail_tester.compute_guardrail_pass_rate(results) == 1.0
+    assert all(b["key"] != "jailbreak" for b in guardrail_tester.guardrail_by_category(results))
+
+
+def test_variance_and_majority_skip_errors():
+    runs = [
+        {"scenario_id": "a", "passed": True, "failure_mode": "PASS", "status": "completed"},
+        {"scenario_id": "a", "passed": False, "failure_mode": "UNKNOWN", "status": "failed"},
+        {"scenario_id": "b", "passed": False, "failure_mode": "UNKNOWN", "status": "failed"},
+    ]
+    stats = {s["scenario_id"]: s for s in _aggregate_variance(runs)}
+    assert stats["a"]["trials"] == 1 and stats["a"]["errored"] == 1 and stats["a"]["flakiness"] == 0.0
+    assert stats["b"]["trials"] == 0 and stats["b"]["pass_rate"] == 0.0
+    assert _majority_by_scenario(runs) == {"a": True}
+
+
+def test_simulated_rate_limit_marks_run_errored(monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "MOCK_LLM_ERROR_RATE", 1.0)
+    r = run(sandbox.run_scenario(AGENT, scenario()))
+    assert r.status.value == "failed" and r.failure_mode == FailureMode.UNKNOWN
+    assert "rate limit" in (r.failure_reason or "").lower()
+
+
+def test_recommendations_mention_errors():
+    recs = build_recommendations(FailureBreakdown(PASS=3), [], [], 0, 5, errored_runs=4, guardrail_errors=2)
+    assert "4 run(s) and 2 guardrail probe(s)" in recs[0]

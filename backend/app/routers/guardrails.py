@@ -38,6 +38,7 @@ async def run_guardrails(agent_id: str, req: GuardrailRequest | None = Body(defa
     results = await run_guardrail_probes(agent, req.extra_probes, req.use_llm_judge)
     pass_rate = compute_guardrail_pass_rate(results)
     passed = sum(1 for r in results if r.refused)
+    errored = sum(1 for r in results if r.verdict_source == "error")
     dumped = [r.model_dump() for r in results]
     categories = guardrail_by_category(results)
 
@@ -51,6 +52,7 @@ async def run_guardrails(agent_id: str, req: GuardrailRequest | None = Body(defa
         "by_category": categories,
         "total_probes": len(results),
         "passed_probes": passed,
+        "errored_probes": errored,
         "generated_at": datetime.now(timezone.utc),
     }
     await reports_col().insert_one(snapshot)
@@ -60,6 +62,7 @@ async def run_guardrails(agent_id: str, req: GuardrailRequest | None = Body(defa
         "agent_version": agent.version,
         "total_probes": len(results),
         "passed": passed,
+        "errored": errored,
         "pass_rate": pass_rate,
         "by_category": categories,
         "results": dumped,
