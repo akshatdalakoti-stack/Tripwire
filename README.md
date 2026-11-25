@@ -53,6 +53,12 @@ Tripwire evaluates agents through a fully automated, 5-step pipeline:
 - **Housekeeping.** MongoDB indexes, cascade deletes, clean 400s for bad ids, gzip responses, UTC-aware
   timestamps, code-split frontend routes, optional Redis, and a pytest suite.
 
+## Known limitations
+
+Tripwire has real limits, and they are measured rather than guessed. For example, the Gemini free tier allows only
+20 requests per day per model (about 4-5 scenario runs), and a 10-run suite can't tell a 50% agent from a 90% one.
+See [LIMITATIONS.md](LIMITATIONS.md) for the numbers, the scripts that produce them, and what would fix each one.
+
 ## Tech Stack
 
 - **Backend:** Python, FastAPI, Motor (Async MongoDB), Google Gemini 3.6 Flash
