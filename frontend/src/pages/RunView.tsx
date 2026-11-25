@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  cancelJob, createScenario, deleteScenario, errorMessage, generateScenarios, getAgent, getScenarios,
+  cancelJob, createScenario, deleteScenario, errorMessage, generateScenarios, getAgent, getMeta, getScenarios,
   listJobs, startJob,
 } from '../api/client'
-import type { AgentConfig, Job, RunResult, Scenario, ScenarioType } from '../types'
+import type { AgentConfig, Job, Meta, RunResult, Scenario, ScenarioType } from '../types'
 import { SCENARIO_TYPES, isInfraError } from '../types'
 import FailureBadge from '../components/FailureBadge'
 import TraceViewer from '../components/TraceViewer'
 import { useToast } from '../components/Toast'
 import { useJobStream, type JobProgress } from '../hooks/useJobStream'
+import Caveat from '../components/Caveat'
 
 type Filter = 'all' | 'failed' | 'passed' | 'errored'
 
@@ -154,6 +155,7 @@ export default function RunView() {
   const [genFocus, setGenFocus] = useState('')
   const [generating, setGenerating] = useState(false)
   const [now, setNow] = useState(Date.now())
+  const [meta, setMeta] = useState<Meta | null>(null)
 
   const onDone = useCallback((p: JobProgress) => {
     if (p.status === 'completed') toast(`Run finished: ${p.passed} passed, ${p.failed} failed${p.errored ? `, ${p.errored} errored (not scored)` : ''}`, p.failed || p.errored ? 'info' : 'success')
@@ -170,7 +172,13 @@ export default function RunView() {
     getScenarios(agentId).then(s => { setScenarios(s); if (!s.length) setTab('scenarios') })
     // Re-attach to a run in progress, or show the most recent results.
     listJobs(agentId, 1).then(js => { if (js[0]) setJob(js[0]) }).catch(() => {})
+    getMeta().then(setMeta).catch(() => {})
   }, [agentId, toast])
+
+  // Refresh the rate-limit counter whenever a run finishes.
+  useEffect(() => {
+    if (progress && progress.status !== 'running') getMeta().then(setMeta).catch(() => {})
+  }, [progress?.status]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!running) return
@@ -233,6 +241,11 @@ export default function RunView() {
   }
 
   const p = progress
+  const callsPerRun = meta?.llm_calls_per_run ?? 4
+  const estCalls = scenarios.length * trials * callsPerRun
+  const perDay = meta?.free_tier?.requests_per_day ?? 20
+  const perMin = meta?.free_tier?.requests_per_minute ?? 5
+  const realModel = meta != null && !meta.mock_llm
   const pct = p && p.total ? Math.round((p.completed / p.total) * 100) : 0
   const elapsed = running && job ? Math.max(0, Math.round((now - new Date(job.created_at).getTime()) / 1000)) : null
 
@@ -262,7 +275,8 @@ export default function RunView() {
               {[1, 2, 3, 5, 10].map(n => <option key={n} value={n}>{n}</option>)}
             </select>
             <span className="hint" style={{ margin: 0 }}>
-              {trials > 1 ? `${scenarios.length * trials} runs — repeats reveal flaky behaviour` : 'Use 3+ trials to measure flakiness'}
+              {scenarios.length * trials} runs · ≈{estCalls} LLM calls
+              {trials === 1 ? ' · use 3+ trials to measure flakiness' : ''}
             </span>
           </div>
           <div className="btn-row">
@@ -282,6 +296,18 @@ export default function RunView() {
           </div>
         </div>
 
+        {(meta?.rate_limits_last_15m ?? 0) > 0 && (
+          <Caveat title="The model is being rate limited">
+            {meta?.rate_limits_last_15m} rate-limit responses in the last 15 minutes. New runs may error; errored runs are
+            shown separately and left out of the score.
+          </Caveat>
+        )}
+        {realModel && !running && estCalls > perDay && (meta?.rate_limits_last_15m ?? 0) === 0 && (
+          <Caveat tone="info">
+            This run needs about {estCalls} LLM calls. A free Gemini key allows {perMin} per minute and {perDay} per day,
+            so on the free tier expect rate-limit errors — or run fewer scenarios/trials.
+          </Caveat>
+        )}
         {p && (
           <div style={{ marginTop: '1.25rem' }}>
             <div className="progress-track" aria-label="Run progress">

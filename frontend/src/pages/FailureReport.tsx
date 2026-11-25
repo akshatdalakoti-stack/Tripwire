@@ -11,6 +11,7 @@ import FailureBadge, { FAILURE_CONFIG } from '../components/FailureBadge'
 import ReliabilityChart, { type HistoryPoint } from '../components/ReliabilityChart'
 import BucketBars from '../components/BucketBars'
 import { useToast } from '../components/Toast'
+import Caveat, { LIMITATIONS_URL } from '../components/Caveat'
 
 const FAILURE_MODES: FailureMode[] = ['UNSAFE_ACTION', 'TOOL_LOOP', 'HALLUCINATED_CONFIDENCE', 'GOAL_DRIFT', 'TIMEOUT', 'UNKNOWN']
 
@@ -153,6 +154,10 @@ export default function FailureReport() {
         </div>
       </div>
 
+      {report.sample_warning && (
+        <Caveat title="This score is a rough estimate">{report.sample_warning}</Caveat>
+      )}
+
       {/* ── Score + failures ── */}
       <div className="grid-2" style={{ marginBottom: '1.5rem' }}>
         <div className="card static">
@@ -172,6 +177,12 @@ export default function FailureReport() {
               ))}
             </div>
           </div>
+          {report.pass_rate_ci && report.pass_rate_ci.length === 2 && report.total_scenarios > 0 && (
+            <p className="muted-sm" style={{ marginTop: '0.75rem' }} title="Wilson 95% confidence interval for the pass rate">
+              Pass rate {Math.round(report.pass_rate * 100)}% · 95% CI {Math.round(report.pass_rate_ci[0] * 100)}–{Math.round(report.pass_rate_ci[1] * 100)}%
+              {report.score_range && <> · score likely {Math.round(report.score_range[0])}–{Math.round(report.score_range[1])}</>}
+            </p>
+          )}
           <div className="grid-4" style={{ marginTop: '1.25rem' }}>
             {[
               { label: 'Passed', value: report.passed, color: 'var(--success)' },
@@ -276,6 +287,11 @@ export default function FailureReport() {
                 <span className="badge badge-neutral">{compare.summary.unchanged} unchanged</span>
                 {compare.summary.new > 0 && <span className="badge badge-purple">{compare.summary.new} new</span>}
               </div>
+              {compare.noise_note && (
+                <p className="muted-sm" style={{ marginBottom: '0.75rem', color: compare.significant ? 'var(--success)' : 'var(--warning)' }}>
+                  {compare.significant ? '✓ ' : '⚠ '}{compare.noise_note}
+                </p>
+              )}
               <div className="diff-list">
                 {compare.regressed.map(e => <div key={e.scenario_id} className="diff-item diff-bad">▼ {e.title}</div>)}
                 {compare.improved.map(e => <div key={e.scenario_id} className="diff-item diff-good">▲ {e.title}</div>)}
@@ -341,6 +357,13 @@ export default function FailureReport() {
         {!guardrails?.results?.length ? (
           <p className="muted-sm">No guardrail results yet. Run the probes to test refusals against social engineering, prompt injection, jailbreaks, data exfiltration and the agent's own destructive tools.</p>
         ) : (
+          <>
+          {guardrails.results.some(r => r.verdict_source === 'heuristic') && !guardrails.results.some(r => r.verdict_source === 'llm_judge') && (
+            <Caveat>
+              These verdicts come from keyword matching because the LLM judge was unavailable (often a rate limit).
+              Keyword matching misses refusals without trigger words — it got 11 of 14 tricky test cases right.
+            </Caveat>
+          )}
           <div className="grid-guard">
             <div>
               <div className="code-label" style={{ marginBottom: '0.75rem' }}>By attack category</div>
@@ -375,7 +398,21 @@ export default function FailureReport() {
               </div>
             </div>
           </div>
+          </>
         )}
+      </div>
+
+      {/* ── How to read ── */}
+      <div className="card static" style={{ marginBottom: '1.5rem' }}>
+        <h2 className="card-title">How to read this report</h2>
+        <ul className="read-list">
+          <li><strong>The agent is simulated.</strong> The model role-plays this agent from its prompt and tool list; your real agent code, memory and framework are not run.</li>
+          <li><strong>Tools are mocks.</strong> Each returns a fixed response and destructive tools always wait for confirmation, which the single-turn user never gives.</li>
+          <li><strong>The model grades itself.</strong> The same model family writes scenarios, plays the agent and classifies failures; the classifier hasn't been checked against human labels.</li>
+          <li><strong>Small suites are noisy.</strong> With 10 runs, an 80% pass rate could really be anywhere from 49% to 94%.</li>
+          <li><strong>Infrastructure errors are excluded.</strong> Rate-limited runs and probes are shown as “errored” and don't affect the score.</li>
+        </ul>
+        <a className="link-btn" href={LIMITATIONS_URL} target="_blank" rel="noreferrer">All measured limitations →</a>
       </div>
 
       {/* ── CI gate ── */}

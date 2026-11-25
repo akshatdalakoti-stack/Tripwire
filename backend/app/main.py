@@ -93,4 +93,10 @@ async def meta():
         "model": "mock" if settings.MOCK_LLM else gemini_client.MODEL,
         "max_trials": settings.MAX_TRIALS,
         "max_scenarios_per_generation": settings.MAX_SCENARIOS_PER_GENERATION,
+        # Measured average LLM calls per scenario run (sandbox steps + classifier).
+        "llm_calls_per_run": 4,
+        # 429 responses seen recently — the UI warns that new results may contain errored runs.
+        "rate_limits_last_15m": gemini_client.recent_rate_limits(900),
+        # Gemini free tier, measured 2026-11-25 (see LIMITATIONS.md). Not enforced; shown as guidance.
+        "free_tier": {"requests_per_minute": 5, "requests_per_day": 20},
     }

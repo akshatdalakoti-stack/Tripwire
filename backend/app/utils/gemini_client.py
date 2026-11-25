@@ -30,6 +30,25 @@ stats = {"requests": 0, "retries": 0, "failures": 0, "mock": settings.MOCK_LLM}
 
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
+# Timestamps of recent 429s, so the UI can warn that results may contain errored runs.
+_rate_limit_events: list[float] = []
+
+
+def _record_rate_limit() -> None:
+    import time
+    now = time.time()
+    _rate_limit_events.append(now)
+    # keep the list short
+    while _rate_limit_events and _rate_limit_events[0] < now - 3600:
+        _rate_limit_events.pop(0)
+
+
+def recent_rate_limits(window_s: int = 900) -> int:
+    """How many 429 responses were seen in the last `window_s` seconds."""
+    import time
+    cutoff = time.time() - window_s
+    return sum(1 for t in _rate_limit_events if t >= cutoff)
+
 
 def _get_client():
     global _client
@@ -78,6 +97,7 @@ async def _generate(prompt: str, json_mode: bool = False, temperature: float | N
         stats["requests"] += 1
         if should_fail(settings.MOCK_LLM_ERROR_RATE):
             stats["failures"] += 1
+            _record_rate_limit()
             raise HTTPException(status_code=429, detail="AI rate limit exceeded after retries (simulated by MOCK_LLM_ERROR_RATE).")
         return mock_generate(prompt, json_mode)
 
@@ -95,6 +115,8 @@ async def _generate(prompt: str, json_mode: bool = False, temperature: float | N
                 except Exception as exc:  # SDK raises ClientError / ServerError / network errors
                     last_exc = exc
                     code = _status_code(exc)
+                    if code == 429:
+                        _record_rate_limit()
                     retryable = code in RETRYABLE_STATUS or code is None
                     if not retryable or attempt == settings.LLM_MAX_RETRIES:
                         break

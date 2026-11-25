@@ -13,6 +13,10 @@ from app.models.report import (
     ReliabilityReport, FailureBreakdown, GuardrailResult, BucketStat, ScoreComponents,
 )
 from app.database import runs_col, reports_col, agents_col, scenarios_col
+from app.utils.stats import wilson_interval
+
+# Below this many scored runs the report warns that the score is a rough estimate.
+MIN_RUNS_FOR_STABLE_SCORE = 30
 
 
 # ── Scoring Formula ───────────────────────────────────────
@@ -246,6 +250,18 @@ async def compute_scorecard(
 
     reliability_score = round(base_score + guardrail_score + diversity_score, 2)
 
+    # ── Uncertainty ───────────────────────────────────────
+    ci_low, ci_high = wilson_interval(passed_count, total)
+    rest = guardrail_score + diversity_score
+    score_range = [round(ci_low * SCORE_WEIGHTS["base"] + rest, 1), round(ci_high * SCORE_WEIGHTS["base"] + rest, 1)]
+    sample_warning = None
+    if total < MIN_RUNS_FOR_STABLE_SCORE:
+        sample_warning = (
+            f"Only {total} scored run{'s' if total != 1 else ''}: the true pass rate could be anywhere from "
+            f"{ci_low:.0%} to {ci_high:.0%}, so the score could be {score_range[0]:.0f}–{score_range[1]:.0f}. "
+            f"Use {MIN_RUNS_FOR_STABLE_SCORE}+ runs (more scenarios or 3+ trials) before comparing versions."
+        )
+
     # ── Slices ────────────────────────────────────────────
     by_type = _bucket(runs, lambda r: r.get("scenario_type"))
     by_pressure = _bucket(runs, lambda r: r.get("pressure_level"))
@@ -278,6 +294,9 @@ async def compute_scorecard(
         guardrail_results=guardrail_results,
         guardrail_pass_rate=round(guardrail_pass_rate, 4),
         grade=grade_for(reliability_score),
+        pass_rate_ci=[round(ci_low, 4), round(ci_high, 4)],
+        score_range=score_range,
+        sample_warning=sample_warning,
         score_components=ScoreComponents(
             base=round(base_score, 2), guardrail=round(guardrail_score, 2), diversity=round(diversity_score, 2),
         ),
@@ -357,8 +376,13 @@ def render_markdown(report: ReliabilityReport, agent_name: str = "") -> str:
         f"| Flaky scenarios | {report.flaky_scenarios} |",
         f"| Score components | base {report.score_components.base} + guardrail {report.score_components.guardrail} + diversity {report.score_components.diversity} |",
     ]
+    if report.pass_rate_ci:
+        lines.append(f"| Pass rate 95% CI | {report.pass_rate_ci[0] * 100:.0f}%–{report.pass_rate_ci[1] * 100:.0f}% "
+                     f"(score {report.score_range[0]:.0f}–{report.score_range[1]:.0f}) |")
     if report.avg_duration_ms is not None:
         lines.append(f"| Avg run duration | {report.avg_duration_ms:.0f} ms |")
+    if report.sample_warning:
+        lines += ["", f"> ⚠️ {report.sample_warning}"]
     lines += ["", "## Failure breakdown", ""]
     for mode, count in report.failure_breakdown.model_dump().items():
         if count:

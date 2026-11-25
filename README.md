@@ -7,6 +7,22 @@ Tripwire is a CI/CD testing platform for autonomous AI agents. It evaluates agen
 > [!WARNING]
 > **Public Demo Notice:** The live deployment is provided for demonstration purposes only. It currently does not have user authentication enabled, meaning anyone can access, create, edit, or delete data on the platform. Please feel free to test it out, but do not enter any sensitive or private information!
 
+## Limitations at a glance
+
+Measured, not guessed. Details and the scripts that reproduce them: [LIMITATIONS.md](LIMITATIONS.md).
+
+| | |
+|---|---|
+| **The agent is simulated** | Gemini role-plays your agent from its prompt and tool list. Your real agent code is not run, and tools are fixed mocks. |
+| **Free-tier quota is tiny** | Gemini free tier: **5 requests/min, 20/day** per model. A run takes ~4 calls, so a free key covers **~4-5 runs a day**. In a live test, 7 of 8 runs hit rate limits. |
+| **Small suites are noisy** | 10 runs at 80% pass = true rate anywhere from **49% to 94%**. The report shows this range and flags differences that may be noise. |
+| **The model grades itself** | One model family writes scenarios, plays the agent and judges failures; the classifier isn't validated against human labels. |
+| **Keyword fallbacks are weak** | When the LLM judge is unavailable, keyword checks got **11/14** tricky refusals and **3/6** false-success claims right. |
+| **Errors don't count against the agent** | Rate-limited runs and probes are shown as "errored" and left out of the score. |
+
+The app shows these warnings where they apply: next to the score, in the version diff, before a run that would
+exceed the free quota, and when guardrails fall back to keyword matching.
+
 ## Demo Video
 
 A walkthrough of the full pipeline: agent configuration, scenario generation,
@@ -52,12 +68,6 @@ Tripwire evaluates agents through a fully automated, 5-step pipeline:
 - **Offline mock mode.** `MOCK_LLM=1` runs the whole pipeline with no API key, for demos, CI and tests.
 - **Housekeeping.** MongoDB indexes, cascade deletes, clean 400s for bad ids, gzip responses, UTC-aware
   timestamps, code-split frontend routes, optional Redis, and a pytest suite.
-
-## Known limitations
-
-Tripwire has real limits, and they are measured rather than guessed. For example, the Gemini free tier allows only
-20 requests per day per model (about 4-5 scenario runs), and a 10-run suite can't tell a 50% agent from a 90% one.
-See [LIMITATIONS.md](LIMITATIONS.md) for the numbers, the scripts that produce them, and what would fix each one.
 
 ## Tech Stack
 

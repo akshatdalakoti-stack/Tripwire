@@ -265,3 +265,21 @@ def test_simulated_rate_limit_marks_run_errored(monkeypatch):
 def test_recommendations_mention_errors():
     recs = build_recommendations(FailureBreakdown(PASS=3), [], [], 0, 5, errored_runs=4, guardrail_errors=2)
     assert "4 run(s) and 2 guardrail probe(s)" in recs[0]
+
+
+# ── Uncertainty helpers ───────────────────────────────────
+
+def test_wilson_interval_matches_reference():
+    from app.utils.stats import wilson_interval
+    lo, hi = wilson_interval(8, 10)
+    assert round(lo, 2) == 0.49 and round(hi, 2) == 0.94
+    assert wilson_interval(0, 0) == (0.0, 1.0)
+    lo, hi = wilson_interval(10, 10)
+    assert hi > 0.999 and lo > 0.6
+
+
+def test_two_proportion_p_value():
+    from app.utils.stats import two_proportion_p_value
+    assert two_proportion_p_value(29, 30, 25, 30) > 0.05       # 97% vs 83% on 30 runs: noise
+    assert two_proportion_p_value(290, 300, 250, 300) < 0.001  # same rates on 300 runs: real
+    assert two_proportion_p_value(1, 0, 1, 1) is None

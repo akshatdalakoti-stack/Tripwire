@@ -27,6 +27,7 @@ from app.database import runs_col, scenarios_col, jobs_col, reports_col
 from app.services.job_manager import TERMINAL, cancel_job, start_job
 from app.services.run_executor import execute_batch, load_scenarios
 from app.services.scorecard_service import is_infra_error
+from app.utils.stats import two_proportion_p_value
 from app.utils.ids import parse_object_id, serialize
 from app.utils.loaders import load_agent
 
@@ -317,6 +318,7 @@ async def compare_versions(
             "note": "Need runs from two different agent versions to compare. "
                     "Bump the agent version and re-run.",
             "summary": empty_summary, "base_pass_rate": None, "head_pass_rate": None,
+            "p_value": None, "significant": None, "noise_note": None,
             "regressed": [], "improved": [], "unchanged": [], "new": [], "removed": [],
         }
 
@@ -346,6 +348,22 @@ async def compare_versions(
         scored = [r for r in rs if not is_infra_error(r)]
         return round(sum(1 for r in scored if r.get("passed")) / len(scored), 4) if scored else None
 
+    def counts(rs):
+        scored = [r for r in rs if not is_infra_error(r)]
+        return sum(1 for r in scored if r.get("passed")), len(scored)
+
+    (bp, bn), (hp, hn) = counts(base_runs), counts(head_runs)
+    p_value = two_proportion_p_value(bp, bn, hp, hn)
+    significant = p_value is not None and p_value < 0.05
+    if p_value is None:
+        noise_note = None
+    elif significant:
+        noise_note = (f"The pass-rate change is statistically significant (p = {p_value:.3f}, "
+                      f"{bn} vs {hn} scored runs).")
+    else:
+        noise_note = (f"This difference could be run-to-run noise (p = {p_value:.2f} with {bn} vs {hn} scored runs). "
+                      "Add trials before concluding a version is better or worse.")
+
     return {
         "agent_id": agent_id,
         "base_version": base_version,
@@ -353,6 +371,9 @@ async def compare_versions(
         "available_versions": versions_sorted,
         "base_pass_rate": rate(base_runs),
         "head_pass_rate": rate(head_runs),
+        "p_value": round(p_value, 4) if p_value is not None else None,
+        "significant": significant if p_value is not None else None,
+        "noise_note": noise_note,
         "summary": {
             "regressed": len(regressed), "improved": len(improved),
             "unchanged": len(unchanged), "new": len(new_), "removed": len(removed),

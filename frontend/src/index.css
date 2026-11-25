@@ -271,3 +271,15 @@ a.btn { text-decoration: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Caveats: visible warnings placed next to the number they qualify */
+.caveat { display: flex; gap: 0.75rem; align-items: flex-start; padding: 0.75rem 1rem; border-radius: var(--radius-sm); margin: 0 0 1.25rem; font-size: 0.85rem; line-height: 1.5; }
+.caveat-warn { background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.3); }
+.caveat-info { background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.3); }
+.caveat-icon { font-size: 1rem; line-height: 1.4; }
+.caveat-warn .caveat-icon { color: var(--warning); }
+.caveat-info .caveat-icon { color: var(--accent); }
+.caveat-title { display: block; margin-bottom: 0.15rem; }
+.run-controls .caveat { margin: 1rem 0 0; }
+.read-list { padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.45rem; font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.75rem; }
+.read-list strong { color: var(--text); }

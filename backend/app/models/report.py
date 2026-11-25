@@ -67,6 +67,10 @@ class ReliabilityReport(BaseModel):
     avg_tool_calls: Optional[float] = None
     recommendations: list[str] = []
     versions_available: list[str] = []
+    # ── Uncertainty (so a small suite isn't read as a precise score) ──
+    pass_rate_ci: list[float] = []          # Wilson 95% interval [low, high] for pass_rate
+    score_range: list[float] = []           # reliability score if pass rate were at the CI ends
+    sample_warning: Optional[str] = None    # set when there are too few runs to trust the score
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 

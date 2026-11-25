@@ -151,6 +151,9 @@ export interface ReliabilityReport {
   avg_tool_calls: number | null
   recommendations: string[]
   versions_available: string[]
+  pass_rate_ci?: number[]
+  score_range?: number[]
+  sample_warning?: string | null
   generated_at: string
 }
 
@@ -211,6 +214,9 @@ export interface CompareResult {
   available_versions: string[]
   base_pass_rate: number | null
   head_pass_rate: number | null
+  p_value?: number | null
+  significant?: boolean | null
+  noise_note?: string | null
   note?: string
   summary: { regressed: number; improved: number; unchanged: number; new: number; removed: number }
   regressed: CompareEntry[]
@@ -230,4 +236,7 @@ export interface Meta {
   model: string
   max_trials: number
   max_scenarios_per_generation: number
+  llm_calls_per_run?: number
+  rate_limits_last_15m?: number
+  free_tier?: { requests_per_minute: number; requests_per_day: number }
 }
